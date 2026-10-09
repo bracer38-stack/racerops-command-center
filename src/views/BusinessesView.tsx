@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useRacerOps } from '../context/RacerOpsContext';
 import { BusinessId, AgingBucket, LeadStage } from '../types';
+import { inventoryMetrics } from '../utils/inventoryMetrics';
 
 export const BusinessesView: React.FC = () => {
   const {
@@ -48,6 +49,7 @@ export const BusinessesView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'leads' | 'content' | 'bugs' | 'roadmap' | 'inventory'>('overview');
 
   const currentBusiness = businesses.find(b => b.id === selectedBusinessId) || businesses[0];
+  const kimMetrics = inventoryMetrics(kimItems);
 
   const filteredKimItems = kimItems.filter(item => {
     if (agingFilter === 'all') return true;
@@ -608,19 +610,19 @@ export const BusinessesView: React.FC = () => {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
               <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-mono">Active Listed Items</span>
-                <p className="text-base font-bold font-mono text-slate-100">148 Units</p>
+                <p className="text-base font-bold font-mono text-slate-100">{kimMetrics.listedCount} Units</p>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-mono">Avg Turnaround</span>
-                <p className="text-base font-bold font-mono text-cyan-400">24.3 Days</p>
+                <p className="text-base font-bold font-mono text-cyan-400">{kimMetrics.averageTurnaroundDays === null ? 'No sales data' : `${kimMetrics.averageTurnaroundDays.toFixed(1)} Days`}</p>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-mono">Realized Gross Margin</span>
-                <p className="text-base font-bold font-mono text-emerald-400">55.8%</p>
+                <p className="text-base font-bold font-mono text-emerald-400">{kimMetrics.grossMarginPct === null ? 'No sales data' : `${kimMetrics.grossMarginPct.toFixed(1)}%`}</p>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
                 <span className="text-[10px] text-slate-400 font-mono">Aging &gt;60 Days</span>
-                <p className="text-base font-bold font-mono text-amber-400">3 Items Stagnant</p>
+                <p className="text-base font-bold font-mono text-amber-400">{kimMetrics.stagnantCount} Items Stagnant</p>
               </div>
             </div>
           </div>

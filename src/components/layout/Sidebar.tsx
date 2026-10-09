@@ -34,6 +34,10 @@ export const Sidebar: React.FC = () => {
     approvals,
     alerts,
     tasks,
+    projects,
+    agents,
+    automations,
+    businesses,
     setIsAskRacerOpsOpen,
     setIsDailyBriefOpen
   } = useRacerOps();
@@ -41,6 +45,9 @@ export const Sidebar: React.FC = () => {
   const pendingApprovals = approvals.filter(a => a.status === 'pending').length;
   const criticalAlerts = alerts.filter(a => !a.isResolved && a.severity === 'critical').length;
   const openTasks = tasks.filter(t => t.status !== 'completed' && t.status !== 'canceled').length;
+  const stalledProjects = projects.filter(p => p.inactivityAlert && p.recommendedAction !== 'archive').length;
+  const onlineAgents = agents.filter(a => a.status !== 'offline' && a.status !== 'error').length;
+  const degradedAutomations = automations.filter(a => a.status === 'degraded' || a.status === 'error').length;
 
   const navItems: NavItem[] = [
     { id: 'command-center', label: 'Command Center', icon: LayoutDashboard },
@@ -49,9 +56,9 @@ export const Sidebar: React.FC = () => {
     { id: 'marketing', label: 'Marketing', icon: Megaphone },
     { id: 'leads', label: 'Leads / CRM', icon: Users },
     { id: 'content', label: 'Content', icon: FileEdit },
-    { id: 'agents', label: 'AI Agents', icon: Bot, badge: '7 Online', badgeColor: 'bg-emerald-950 text-emerald-400 border-emerald-800' },
-    { id: 'automations', label: 'Automations', icon: Cpu, badge: '1 Degraded', badgeColor: 'bg-amber-950 text-amber-400 border-amber-800' },
-    { id: 'projects', label: 'Projects', icon: FolderGit2, badge: '1 Stalled', badgeColor: 'bg-orange-950 text-orange-400 border-orange-800' },
+    { id: 'agents', label: 'AI Agents', icon: Bot, badge: `${onlineAgents} Online`, badgeColor: 'bg-emerald-950 text-emerald-400 border-emerald-800' },
+    { id: 'automations', label: 'Automations', icon: Cpu, badge: degradedAutomations ? `${degradedAutomations} Degraded` : undefined, badgeColor: 'bg-amber-950 text-amber-400 border-amber-800' },
+    { id: 'projects', label: 'Projects', icon: FolderGit2, badge: stalledProjects ? `${stalledProjects} Stalled` : undefined, badgeColor: 'bg-orange-950 text-orange-400 border-orange-800' },
     { id: 'tasks', label: 'Tasks', icon: CheckSquare, badge: openTasks, badgeColor: 'bg-slate-800 text-slate-300 border-slate-700' },
     { id: 'reports', label: 'Reports', icon: FileBarChart },
     { id: 'integrations', label: 'Integrations', icon: Boxes },
@@ -166,7 +173,7 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
         <p className="text-[10px] text-slate-400 mt-1 truncate">
-          4 Businesses • 7 AI Agents • 5 Workflows
+          {businesses.length} Businesses • {agents.length} AI Agents • {automations.length} Workflows
         </p>
       </div>
     </aside>

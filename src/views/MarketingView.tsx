@@ -17,7 +17,7 @@ import {
 import { useRacerOps } from '../context/RacerOpsContext';
 
 export const MarketingView: React.FC = () => {
-  const { approvals, setActiveView } = useRacerOps();
+  const { approvals, setActiveView, dataMode } = useRacerOps();
 
   const [platformFilter, setPlatformFilter] = useState('all');
   const [businessFilter, setBusinessFilter] = useState('all');
@@ -59,6 +59,8 @@ export const MarketingView: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
+      {dataMode === 'demo' ? <>
+      <p className="text-xs text-amber-400">Sample marketing analytics — not connected to live telemetry.</p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
           <div className="flex items-center space-x-2 text-slate-400 text-xs mb-1">
@@ -143,6 +145,9 @@ export const MarketingView: React.FC = () => {
       </div>
 
       {/* Content Awaiting Approval & Scheduled Posts */}
+      </> : <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-400">
+        No marketing telemetry available. Reach, clicks, attribution, and channel performance are not connected.
+      </div>}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Awaiting Human Approval */}
         <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
@@ -179,6 +184,7 @@ export const MarketingView: React.FC = () => {
         </div>
 
         {/* Channel Health Matrix */}
+        {dataMode === 'demo' && (
         <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-3">
             Publishing Channel Automation Status
@@ -220,6 +226,7 @@ export const MarketingView: React.FC = () => {
             ))}
           </div>
         </div>
+        )}
       </div>
     </div>
   );
