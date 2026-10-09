@@ -46,4 +46,15 @@ describe('load/save round trip', () => {
     storage.setItem(STORAGE_KEY, '{not json');
     expect(loadPersistedState(defaults, storage)).toEqual({});
   });
+
+  it('keeps the app usable when browser storage is unavailable or full', () => {
+    const storage = {
+      getItem: () => { throw new Error('Storage disabled'); },
+      setItem: () => { throw new Error('Quota exceeded'); }
+    };
+    expect(loadPersistedState(defaults, storage)).toEqual({});
+    expect(() => savePersistedState(defaults, storage)).not.toThrow();
+    expect(loadPersistedState(defaults, null)).toEqual({});
+    expect(() => savePersistedState(defaults, null)).not.toThrow();
+  });
 });

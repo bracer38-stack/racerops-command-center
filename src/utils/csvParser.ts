@@ -73,13 +73,14 @@ const BUSINESS_ALIASES: Record<string, BusinessId> = {
   over50fitlife: 'over50fitlife',
   nutriplanpro: 'nutriplanpro',
   kimscloset: 'kims-closet',
+  kimsclosetboutique: 'kims-closet',
   teamrhino: 'team-rhino'
 };
 
 /** Matches ids or display names ("Kim's Closet", "kims-closet", "Team Rhino"); null if unrecognized. */
 export function resolveBusinessId(raw: string): BusinessId | null {
   const key = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return BUSINESS_ALIASES[key] ?? null;
+  return Object.hasOwn(BUSINESS_ALIASES, key) ? BUSINESS_ALIASES[key] : null;
 }
 
 function parseAmount(raw: string | undefined): number {

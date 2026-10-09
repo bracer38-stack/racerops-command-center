@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { convertRowsToInventory, convertRowsToLeads, parseCSV, parseCSVRecords } from '../utils/csvParser';
+import { convertRowsToInventory, convertRowsToLeads, parseCSV, parseCSVRecords, resolveBusinessId } from '../utils/csvParser';
 
 describe('parseCSVRecords', () => {
   it('treats apostrophes as literal characters', () => {
@@ -28,6 +28,11 @@ describe('parseCSV', () => {
 });
 
 describe('convertRowsToLeads', () => {
+  it('resolves the full boutique display name and rejects inherited object keys', () => {
+    expect(resolveBusinessId("Kim's Closet Boutique")).toBe('kims-closet');
+    expect(resolveBusinessId('constructor')).toBeNull();
+  });
+
   it('resolves business display names and does not invent deal values', () => {
     const { leads, skippedRows } = convertRowsToLeads([
       { Name: 'A', Business: "Kim's Closet", Value: '' },
