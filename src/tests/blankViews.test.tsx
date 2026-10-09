@@ -24,7 +24,7 @@ const state = {
   teamRhinoStats: BLANK_TEAM_RHINO,
   approvals: [], alerts: [], tasks: [], projects: [], agents: [], automations: [],
   leads: [], customers: [], kimItems: [], priorities: [], activities: [],
-  opportunities: [], automationRuns: []
+  opportunities: [], automationRuns: [], integrations: []
 };
 
 describe('blank-slate displays', () => {
@@ -34,6 +34,8 @@ describe('blank-slate displays', () => {
     const dashboard = renderToStaticMarkup(<CommandCenterView />);
     expect(dashboard).toContain('No stalled projects.');
     expect(dashboard).not.toContain('Card Tracker Invention');
+    expect(dashboard).toContain('0 AI agents');
+    expect(dashboard).toContain('0 configured integrations');
   });
 
   it('shows inventory metrics derived from empty inventory', () => {

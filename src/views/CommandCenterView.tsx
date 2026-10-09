@@ -34,6 +34,8 @@ export const CommandCenterView: React.FC = () => {
     resolveAlert,
     activities,
     financials,
+    agents,
+    integrations,
     projects,
     opportunities,
     updateOpportunityStatus,
@@ -93,7 +95,7 @@ export const CommandCenterView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Real-time executive oversight across 4 businesses, 7 AI agents, and 12 live systems.
+            Executive oversight across {businesses.length} businesses, {agents.length} AI agents, and {integrations.length} configured integrations.
           </p>
         </div>
 
