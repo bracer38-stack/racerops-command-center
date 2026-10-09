@@ -1,23 +1,20 @@
-import { IngestionPreview, Lead, KimClosetItem, Task, BusinessId } from '../types';
+import { IngestionPreview, Lead, KimClosetItem, BusinessId } from '../types';
+import { newId } from './ids';
 
 export function parseCSV(csvText: string, fileName: string, type: IngestionPreview['type']): IngestionPreview {
-  const lines = csvText.trim().split(/\r\n|\n/).filter(line => line.trim().length > 0);
-  if (lines.length < 2) {
+  const records = parseCSVRecords(csvText).filter(fields => fields.some(f => f.trim().length > 0));
+  if (records.length < 2) {
     throw new Error('CSV file must have at least a header row and one data row.');
   }
 
-  // Parse header
-  const headers = splitCSVRow(lines[0]);
-  const rows: Record<string, string>[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = splitCSVRow(lines[i]);
+  const headers = records[0].map(h => h.trim());
+  const rows = records.slice(1).map(values => {
     const rowObj: Record<string, string> = {};
     headers.forEach((h, hIdx) => {
       rowObj[h] = values[hIdx] !== undefined ? values[hIdx].trim() : '';
     });
-    rows.push(rowObj);
-  }
+    return rowObj;
+  });
 
   return {
     type,
@@ -28,79 +25,127 @@ export function parseCSV(csvText: string, fileName: string, type: IngestionPrevi
   };
 }
 
-function splitCSVRow(rowText: string): string[] {
-  const result: string[] = [];
-  let current = '';
+/** RFC 4180: double quotes only, "" escapes a quote, quoted fields may contain commas and newlines. */
+export function parseCSVRecords(csvText: string): string[][] {
+  const text = csvText.replace(/^\uFEFF/, '');
+  const records: string[][] = [];
+  let fields: string[] = [];
+  let field = '';
   let inQuotes = false;
 
-  for (let i = 0; i < rowText.length; i++) {
-    const char = rowText[i];
-    if (char === '"' || char === "'") {
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim());
-      current = '';
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      fields.push(field);
+      field = '';
+    } else if (char === '\n' || char === '\r') {
+      if (char === '\r' && text[i + 1] === '\n') i++;
+      fields.push(field);
+      records.push(fields);
+      fields = [];
+      field = '';
     } else {
-      current += char;
+      field += char;
     }
   }
-  result.push(current.trim());
-  return result;
+
+  if (field.length > 0 || fields.length > 0) {
+    fields.push(field);
+    records.push(fields);
+  }
+  return records;
 }
 
-export function convertRowsToLeads(rows: Record<string, string>[]): Lead[] {
-  return rows.map((r, idx) => {
-    // fuzzy match keys
-    const name = r.Name || r.name || r['Contact Name'] || r['Lead Name'] || `Lead #${idx + 1}`;
-    const email = r.Email || r.email || r['Email Address'] || 'unknown@domain.com';
-    const phone = r.Phone || r.phone || r['Phone Number'] || '';
-    const businessId = (r.Business || r.business || r.BusinessId || 'over50fitlife').toLowerCase().replace(/\s+/g, '-') as BusinessId;
-    const value = parseFloat((r.Value || r.value || r.Amount || r['Deal Value'] || '0').replace(/[^0-9.-]/g, '')) || 500;
-    const source = r.Source || r.source || r['Lead Source'] || 'CSV Upload';
-    const stage = (r.Stage || r.stage || 'new').toLowerCase() as any;
-    const notes = r.Notes || r.notes || r.Description || 'Imported via CSV';
+const BUSINESS_ALIASES: Record<string, BusinessId> = {
+  over50fitlife: 'over50fitlife',
+  nutriplanpro: 'nutriplanpro',
+  kimscloset: 'kims-closet',
+  teamrhino: 'team-rhino'
+};
 
-    return {
-      id: `lead-csv-${Date.now()}-${idx}`,
+/** Matches ids or display names ("Kim's Closet", "kims-closet", "Team Rhino"); null if unrecognized. */
+export function resolveBusinessId(raw: string): BusinessId | null {
+  const key = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return BUSINESS_ALIASES[key] ?? null;
+}
+
+function parseAmount(raw: string | undefined): number {
+  const value = parseFloat((raw || '').replace(/[^0-9.-]/g, ''));
+  return Number.isFinite(value) ? value : 0;
+}
+
+export interface LeadConversionResult {
+  leads: Lead[];
+  /** Spreadsheet row numbers (header = row 1) whose Business value wasn't recognized. */
+  skippedRows: number[];
+}
+
+export function convertRowsToLeads(
+  rows: Record<string, string>[],
+  defaultBusinessId: BusinessId = 'over50fitlife'
+): LeadConversionResult {
+  const leads: Lead[] = [];
+  const skippedRows: number[] = [];
+
+  rows.forEach((r, idx) => {
+    const rawBusiness = r.Business || r.business || r.BusinessId || '';
+    const businessId = rawBusiness ? resolveBusinessId(rawBusiness) : defaultBusinessId;
+    if (!businessId) {
+      skippedRows.push(idx + 2);
+      return;
+    }
+
+    const stage = (r.Stage || r.stage || 'new').toLowerCase() as Lead['stage'];
+    leads.push({
+      id: newId('lead-csv'),
       businessId,
-      name,
-      email,
-      phone,
+      name: r.Name || r.name || r['Contact Name'] || r['Lead Name'] || `Lead #${idx + 1}`,
+      email: r.Email || r.email || r['Email Address'] || '',
+      phone: r.Phone || r.phone || r['Phone Number'] || '',
       stage: ['new', 'contacted', 'qualified', 'consultation', 'proposal', 'customer', 'lost'].includes(stage) ? stage : 'new',
-      value,
-      source,
+      value: parseAmount(r.Value || r.value || r.Amount || r['Deal Value']),
+      source: r.Source || r.source || r['Lead Source'] || 'CSV Upload',
       lastContact: 'Imported Today',
       nextFollowUp: 'Scheduled',
-      notes
-    };
+      notes: r.Notes || r.notes || r.Description || 'Imported via CSV'
+    });
   });
+
+  return { leads, skippedRows };
 }
 
 export function convertRowsToInventory(rows: Record<string, string>[]): KimClosetItem[] {
   return rows.map((r, idx) => {
-    const brand = r.Brand || r.brand || 'Designer Brand';
-    const title = r.Title || r.title || r.Item || r.Name || `Item #${idx + 1}`;
-    const sku = r.SKU || r.sku || `KC-${1000 + idx}`;
-    const category = r.Category || r.category || 'Apparel & Accessories';
-    const cost = parseFloat((r.Cost || r.cost || r['Cost Basis'] || '0').replace(/[^0-9.-]/g, '')) || 0;
-    const listingPrice = parseFloat((r.ListingPrice || r['Listing Price'] || r.Price || '0').replace(/[^0-9.-]/g, '')) || 100;
-    const marketplace = (r.Marketplace || r.marketplace || r.Platform || 'poshmark').toLowerCase() as any;
+    const marketplace = (r.Marketplace || r.marketplace || r.Platform || 'poshmark').toLowerCase() as KimClosetItem['marketplace'];
     const daysListed = parseInt(r.DaysListed || r['Days Listed'] || '0', 10) || 0;
 
-    let agingBucket: any = '0-14';
+    let agingBucket: KimClosetItem['agingBucket'] = '0-14';
     if (daysListed > 90) agingBucket = '90+';
     else if (daysListed > 60) agingBucket = '61-90';
     else if (daysListed > 30) agingBucket = '31-60';
     else if (daysListed > 14) agingBucket = '15-30';
 
     return {
-      id: `kc-csv-${Date.now()}-${idx}`,
-      sku,
-      brand,
-      title,
-      category,
-      cost,
-      listingPrice,
+      id: newId('kc-csv'),
+      sku: r.SKU || r.sku || `KC-${1000 + idx}`,
+      brand: r.Brand || r.brand || 'Designer Brand',
+      title: r.Title || r.title || r.Item || r.Name || `Item #${idx + 1}`,
+      category: r.Category || r.category || 'Apparel & Accessories',
+      cost: parseAmount(r.Cost || r.cost || r['Cost Basis']),
+      listingPrice: parseAmount(r.ListingPrice || r['Listing Price'] || r.Price),
       status: 'listed',
       marketplace: ['poshmark', 'mercari', 'depop', 'vinted', 'whatnot', 'vestiaire', 'website'].includes(marketplace) ? marketplace : 'poshmark',
       listingDate: new Date().toISOString().split('T')[0],
