@@ -34,6 +34,8 @@ export const CommandCenterView: React.FC = () => {
     resolveAlert,
     activities,
     financials,
+    agents,
+    integrations,
     projects,
     opportunities,
     updateOpportunityStatus,
@@ -53,6 +55,7 @@ export const CommandCenterView: React.FC = () => {
 
   const pendingApprovals = approvals.filter(a => a.status === 'pending');
   const unresolvedAlerts = alerts.filter(a => !a.isResolved);
+  const stalledProjects = projects.filter(p => p.inactivityAlert && p.recommendedAction !== 'archive');
 
   const filteredPriorities = priorities.filter(p => {
     if (priorityFilter === 'open') return !p.completed;
@@ -92,7 +95,7 @@ export const CommandCenterView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-0.5">
-            Real-time executive oversight across 4 businesses, 7 AI agents, and 12 live systems.
+            Executive oversight across {businesses.length} businesses, {agents.length} AI agents, and {integrations.length} configured integrations.
           </p>
         </div>
 
@@ -292,7 +295,7 @@ export const CommandCenterView: React.FC = () => {
               <h3 className="text-sm font-bold text-slate-100 group-hover:text-orange-300 transition-colors">
                 Projects Pipeline
               </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">3 active concepts & prototypes</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">{projects.filter(p => p.recommendedAction !== 'archive').length} active concepts & prototypes</p>
 
               <div className="mt-3 pt-3 border-t border-slate-800/80">
                 <div className="flex items-baseline justify-between">
@@ -300,7 +303,7 @@ export const CommandCenterView: React.FC = () => {
                     {projects.length} Total
                   </span>
                   <span className="text-[11px] font-mono text-orange-400 font-semibold">
-                    1 Stalled (42d)
+                    {stalledProjects.length} Stalled
                   </span>
                 </div>
                 <span className="text-[10px] text-slate-400 font-mono">Inactivity Radar Active</span>
@@ -309,7 +312,7 @@ export const CommandCenterView: React.FC = () => {
 
             <div className="mt-3 pt-2 border-t border-slate-800/60">
               <p className="text-[10px] text-orange-400 font-medium line-clamp-2">
-                <strong className="text-slate-300">Stalled:</strong> Card Tracker Invention needs resume/archive decision.
+                {stalledProjects.length ? `Stalled: ${stalledProjects.map(p => p.name).join(', ')} needs a decision.` : 'No stalled projects.'}
               </p>
             </div>
           </div>

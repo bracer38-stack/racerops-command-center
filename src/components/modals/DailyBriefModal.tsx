@@ -25,6 +25,9 @@ export const DailyBriefModal: React.FC = () => {
     nutriPlanStats,
     priorities,
     approvals,
+    tasks,
+    automationRuns,
+    automations,
     showToast
   } = useRacerOps();
 
@@ -33,26 +36,30 @@ export const DailyBriefModal: React.FC = () => {
   const pendingApprovalsCount = approvals.filter(a => a.status === 'pending').length;
   const recentKimSale = kimItems.find(i => i.status === 'sold');
   const openPriorities = priorities.filter(p => !p.completed).slice(0, 3);
+  const activeLeads = leads.filter(l => l.stage !== 'customer' && l.stage !== 'lost');
+  const pipelineValue = activeLeads.reduce((sum, lead) => sum + lead.value, 0);
+  const soldCount = kimItems.filter(item => item.status === 'sold').length;
+  const completedTasks = tasks.filter(task => task.status === 'completed').length;
+  const failedRuns = automationRuns.filter(run => run.status === 'failed').length;
+  const degradedAutomations = automations.filter(a => a.status === 'degraded' || a.status === 'error').length;
 
   const handleCopyMarkdown = () => {
     const briefText = `**RacerOps Executive Daily Brief**
 Date: ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
 
 • Revenue this month: $${financials.revenueThisMonth.toLocaleString()} (+${financials.revenueChangePct}% MoM)
-• Active leads: ${leads.length} ($15,200 pipeline)
+• Active leads: ${activeLeads.length} ($${pipelineValue.toLocaleString()} pipeline)
 • NutriPlanPro subscribers: +${nutriPlanStats.subscriptions.newMonth} this month (${nutriPlanStats.subscriptions.conversionRate}% conv)
-• Kim's Closet: ${recentKimSale ? `${recentKimSale.brand} ${recentKimSale.title} sold for $${recentKimSale.salePrice}` : '1 recent sale'}
-• Automation status: 1 degraded (Blotato Pinterest token expired)
+• Kim's Closet: ${soldCount} sold${recentKimSale ? `; ${recentKimSale.brand} ${recentKimSale.title}` : ''}
+• Automation status: ${degradedAutomations} degraded or error in saved configuration
 
 Top Priorities:
-1. Follow up with 2 Over50FitLife consult requests (>48h SLA)
-2. Review 3 Kim's Closet listings older than 60 days
-3. Approve 4 queued social carousel posts & newsletter
+${openPriorities.map((priority, index) => `${index + 1}. ${priority.title}: ${priority.suggestedAction}`).join('\n') || 'No open priorities.'}
 
 AI Activity:
-• 12 tasks completed
+• ${completedTasks} tasks completed on record
 • ${pendingApprovalsCount} awaiting approval
-• 0 system failures`;
+• ${failedRuns} failed automation runs on record`;
 
     navigator.clipboard.writeText(briefText);
     showToast('Daily brief copied to clipboard in Markdown format');
@@ -95,7 +102,7 @@ AI Activity:
               Good morning, Brace.
             </p>
             <p className="text-xs text-slate-400 mt-1">
-              Your businesses are performing stably with <span className="text-cyan-300 font-medium">+$42,980</span> consolidated revenue this month. Three consequential approvals are waiting for your signature to unblock marketing and inventory workflows.
+              Consolidated revenue this month is <span className="text-cyan-300 font-medium">${financials.revenueThisMonth.toLocaleString()}</span>. {pendingApprovalsCount} approvals are waiting for your signature.
             </p>
           </div>
 
@@ -121,8 +128,8 @@ AI Activity:
                   <Users className="w-3.5 h-3.5 text-blue-400" />
                   <span>Active Leads</span>
                 </div>
-                <p className="text-base font-bold text-slate-100 font-mono">{leads.length}</p>
-                <p className="text-[10px] text-amber-400 mt-0.5">2 SLA overdue</p>
+                <p className="text-base font-bold text-slate-100 font-mono">{activeLeads.length}</p>
+                <p className="text-[10px] text-amber-400 mt-0.5">{activeLeads.filter(l => l.isOverdue).length} SLA overdue</p>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
@@ -131,7 +138,7 @@ AI Activity:
                   <span>NutriPlan Users</span>
                 </div>
                 <p className="text-base font-bold text-slate-100 font-mono">{nutriPlanStats.users.total.toLocaleString()}</p>
-                <p className="text-[10px] text-purple-400 mt-0.5">1,240 Premium</p>
+                <p className="text-[10px] text-purple-400 mt-0.5">{nutriPlanStats.users.premium.toLocaleString()} Premium</p>
               </div>
 
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
@@ -139,8 +146,8 @@ AI Activity:
                   <ShoppingBag className="w-3.5 h-3.5 text-pink-400" />
                   <span>Kim's Closet</span>
                 </div>
-                <p className="text-base font-bold text-slate-100 font-mono">1 Sold</p>
-                <p className="text-[10px] text-emerald-400 mt-0.5">$340 trench</p>
+                <p className="text-base font-bold text-slate-100 font-mono">{soldCount} Sold</p>
+                <p className="text-[10px] text-emerald-400 mt-0.5">{recentKimSale ? `${recentKimSale.brand} ${recentKimSale.title}` : 'No sales recorded'}</p>
               </div>
             </div>
           </div>
@@ -175,11 +182,11 @@ AI Activity:
           <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono mb-2 flex items-center space-x-2">
               <Bot className="w-3.5 h-3.5 text-cyan-400" />
-              <span>AI Agent Activity (Last 24 Hours)</span>
+              <span>Recorded Task & Automation Activity</span>
             </h3>
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="p-2 rounded bg-slate-900 border border-slate-800/80">
-                <span className="text-emerald-400 font-bold font-mono text-sm block">12</span>
+                <span className="text-emerald-400 font-bold font-mono text-sm block">{completedTasks}</span>
                 <span className="text-slate-400 text-[11px]">Tasks Completed</span>
               </div>
               <div className="p-2 rounded bg-slate-900 border border-slate-800/80">
@@ -187,8 +194,8 @@ AI Activity:
                 <span className="text-slate-400 text-[11px]">Awaiting Approval</span>
               </div>
               <div className="p-2 rounded bg-slate-900 border border-slate-800/80">
-                <span className="text-slate-400 font-bold font-mono text-sm block">0</span>
-                <span className="text-slate-400 text-[11px]">Failed Actions</span>
+                <span className="text-slate-400 font-bold font-mono text-sm block">{failedRuns}</span>
+                <span className="text-slate-400 text-[11px]">Failed Runs</span>
               </div>
             </div>
           </div>

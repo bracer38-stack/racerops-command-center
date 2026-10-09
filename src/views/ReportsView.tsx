@@ -11,6 +11,7 @@ import {
   Share2
 } from 'lucide-react';
 import { useRacerOps } from '../context/RacerOpsContext';
+import { inventoryMetrics } from '../utils/inventoryMetrics';
 
 export const ReportsView: React.FC = () => {
   const {
@@ -20,10 +21,13 @@ export const ReportsView: React.FC = () => {
     leads,
     kimItems,
     nutriPlanStats,
+    priorities,
+    approvals,
     showToast
   } = useRacerOps();
 
   const [selectedReport, setSelectedReport] = useState<string>('weekly');
+  const kimMetrics = inventoryMetrics(kimItems);
 
   const reports = [
     { id: 'weekly', title: 'Weekly Business Review (WBR)', audience: 'Executive / Portfolio Wide' },
@@ -113,7 +117,7 @@ export const ReportsView: React.FC = () => {
                   1. Executive Summary
                 </h4>
                 <p>
-                  Portfolio revenue reached <strong className="text-white">${financials.revenueThisMonth.toLocaleString()}</strong> across 4 operating brands, pacing +{financials.revenueChangePct}% MoM with an estimated profit margin of 70.9% (${financials.profitEstimate.toLocaleString()}). Operational friction remains minimal with 94.2% workflow uptime across n8n, OpenClaw, and Blotato.
+                  Portfolio revenue reached <strong className="text-white">${financials.revenueThisMonth.toLocaleString()}</strong> across {businesses.length} operating brands, pacing {financials.revenueChangePct}% MoM with an estimated profit margin of {financials.profitMarginPct}% (${financials.profitEstimate.toLocaleString()}).
                 </p>
               </div>
 
@@ -122,10 +126,9 @@ export const ReportsView: React.FC = () => {
                   2. Brand Performance Matrix
                 </h4>
                 <ul className="list-disc pl-4 space-y-1 text-slate-400">
-                  <li><strong className="text-slate-200">Over50FitLife:</strong> $14,280 revenue (Strong inbound from strength & hypertrophy content; 14 active leads in consultation).</li>
-                  <li><strong className="text-slate-200">NutriPlanPro:</strong> $11,160 MRR / $133,920 ARR across 1,240 subscribers. iOS v2.4.1 stable (4.8 ★); Android v2.4.2 in Google Play review.</li>
-                  <li><strong className="text-slate-200">Kim’s Closet:</strong> $8,420 MTD sales (55.8% gross margin). Turnaround 24.3 days; 3 luxury items aged &gt;60 days queued for markdown.</li>
-                  <li><strong className="text-slate-200">Team Rhino:</strong> $9,120 MTD wholesale & direct sales (440 units sold, 53.9% net margin).</li>
+                  {businesses.map(business => (
+                    <li key={business.id}><strong className="text-slate-200">{business.name}:</strong> ${business.revenueMonth.toLocaleString()} MTD revenue; {business.activeLeads} active leads.</li>
+                  ))}
                 </ul>
               </div>
 
@@ -134,10 +137,9 @@ export const ReportsView: React.FC = () => {
                   3. Key Risks & Next Directives
                 </h4>
                 <p>
-                  1. Follow up with Marcus Vance & Eleanor Ross (Over50FitLife high-ticket coaching leads).<br />
-                  2. Clear 3 pending consequential actions in the Approval Inbox (social carousel and handbag markdowns).<br />
-                  3. Renew Blotato Pinterest OAuth token to restore automated graphic pin syndication.
+                  {priorities.filter(p => !p.completed).length} open priorities; {approvals.filter(a => a.status === 'pending').length} pending approvals.
                 </p>
+                {priorities.filter(p => !p.completed).map(p => <p key={p.id}>{p.title}: {p.suggestedAction}</p>)}
               </div>
             </div>
           )}
@@ -150,7 +152,7 @@ export const ReportsView: React.FC = () => {
                 </h4>
                 <p>Consolidated Monthly Revenue: ${financials.revenueThisMonth.toLocaleString()}</p>
                 <p>Operating Expenses: ${financials.expensesThisMonth.toLocaleString()}</p>
-                <p>Net Realized Profit: ${financials.profitEstimate.toLocaleString()} (70.9% Margin)</p>
+                <p>Estimated Profit: ${financials.profitEstimate.toLocaleString()} ({financials.profitMarginPct}% Margin)</p>
                 <p>Fixed Recurring Burn: ${financials.recurringBurn.toLocaleString()}/mo</p>
               </div>
             </div>
@@ -162,10 +164,10 @@ export const ReportsView: React.FC = () => {
                 <h4 className="font-bold text-slate-100 uppercase tracking-wider font-mono text-[11px] mb-2">
                   Aging Buckets & Liquid Capital Status
                 </h4>
-                <p>Total Listed Units: 148 Units across Poshmark, Mercari, Depop, Whatnot.</p>
-                <p>Average Lifespan: 24.3 Days.</p>
+                <p>Total Listed Units: {kimMetrics.listedCount} Units.</p>
+                <p>Average Turnaround: {kimMetrics.averageTurnaroundDays === null ? 'No sales data' : `${kimMetrics.averageTurnaroundDays.toFixed(1)} Days`}.</p>
                 <p className="text-amber-300 mt-2">
-                  Stagnant Units (&gt;60 Days): Gucci Monogram Crossbody ($495) and Prada Nylon Backpack ($550). Recommended 15% markdown and refreshed algorithmic relisting.
+                  Stagnant Units (&gt;60 Days): {kimMetrics.stagnantCount}.
                 </p>
               </div>
             </div>
@@ -173,7 +175,7 @@ export const ReportsView: React.FC = () => {
 
           {selectedReport !== 'weekly' && selectedReport !== 'revenue' && selectedReport !== 'inventory' && (
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-400">
-              Live report generated from current RacerOps database telemetry. Ready for markdown and CSV distribution.
+              This report is not yet implemented. No live telemetry report is available.
             </div>
           )}
         </div>

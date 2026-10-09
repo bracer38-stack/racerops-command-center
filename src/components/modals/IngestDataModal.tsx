@@ -60,8 +60,8 @@ export const IngestDataModal: React.FC = () => {
     if (!preview) return;
 
     if (preview.type === 'leads') {
-      const converted = convertRowsToLeads(preview.rows);
-      ingestLeadsList(converted);
+      const { leads, skippedRows } = convertRowsToLeads(preview.rows);
+      ingestLeadsList(leads, skippedRows);
     } else if (preview.type === 'inventory') {
       const converted = convertRowsToInventory(preview.rows);
       ingestInventoryList(converted);
@@ -80,9 +80,8 @@ export const IngestDataModal: React.FC = () => {
       try {
         const text = event.target?.result as string;
         const data = JSON.parse(text);
-        importDatabaseJson(data);
-        setIsIngestModalOpen(false);
-      } catch (err: any) {
+        if (importDatabaseJson(data)) setIsIngestModalOpen(false);
+      } catch {
         showToast('Invalid JSON backup file');
       }
     };

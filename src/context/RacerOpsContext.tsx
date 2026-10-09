@@ -61,6 +61,35 @@ import {
   BLANK_TEAM_RHINO
 } from '../data/blankData';
 
+import { newId } from '../utils/ids';
+import { loadPersistedState, pickSections, savePersistedState, PersistedState } from '../utils/persistence';
+
+const DEMO_STATE: PersistedState = {
+  dataMode: 'demo',
+  businesses: INITIAL_BUSINESSES,
+  healthBreakdown: INITIAL_HEALTH_BREAKDOWN,
+  priorities: INITIAL_PRIORITIES,
+  alerts: INITIAL_ALERTS,
+  activities: INITIAL_ACTIVITIES,
+  financials: INITIAL_FINANCIALS,
+  leads: INITIAL_LEADS,
+  customers: INITIAL_CUSTOMERS,
+  over50Stats: INITIAL_OVER50_STATS,
+  nutriPlanStats: INITIAL_NUTRIPLAN_STATS,
+  kimItems: INITIAL_KIM_ITEMS,
+  teamRhinoStats: INITIAL_TEAM_RHINO,
+  projects: INITIAL_PROJECTS,
+  tasks: INITIAL_TASKS,
+  agents: INITIAL_AGENTS,
+  automations: INITIAL_AUTOMATIONS,
+  automationRuns: INITIAL_AUTOMATION_RUNS,
+  opportunities: INITIAL_OPPORTUNITIES,
+  approvals: INITIAL_APPROVALS,
+  notifications: INITIAL_NOTIFICATIONS,
+  integrations: INITIAL_INTEGRATIONS,
+  contentItems: INITIAL_CONTENT
+};
+
 export type ActiveView = 
   | 'command-center'
   | 'businesses'
@@ -95,7 +124,7 @@ interface RacerOpsContextType {
   resetToBlankSlate: () => void;
   restoreDemoData: () => void;
   exportDatabaseJson: () => void;
-  importDatabaseJson: (json: any) => void;
+  importDatabaseJson: (json: unknown) => boolean;
   
   // Modals & Panels
   isDailyBriefOpen: boolean;
@@ -134,7 +163,7 @@ interface RacerOpsContextType {
   leads: Lead[];
   updateLeadStage: (id: string, newStage: LeadStage) => void;
   addNewLead: (lead: Omit<Lead, 'id'>) => void;
-  ingestLeadsList: (leads: Lead[]) => void;
+  ingestLeadsList: (leads: Lead[], skippedRows?: number[]) => void;
   customers: Customer[];
   over50Stats: Over50FitLifeStats;
   nutriPlanStats: NutriPlanProStats;
@@ -180,7 +209,8 @@ const RacerOpsContext = createContext<RacerOpsContextType | undefined>(undefined
 export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeView, setActiveView] = useState<ActiveView>('command-center');
   const [selectedBusinessId, setSelectedBusinessId] = useState<BusinessId>('over50fitlife');
-  const [dataMode, setDataMode] = useState<DataMode>('demo');
+  const [persisted] = useState(() => ({ ...DEMO_STATE, ...loadPersistedState(DEMO_STATE) }));
+  const [dataMode, setDataMode] = useState<DataMode>(persisted.dataMode);
   
   // Modals
   const [isDailyBriefOpen, setIsDailyBriefOpen] = useState(false);
@@ -195,68 +225,59 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<string | null>(null);
 
-  // State data (initialized from mock data or local storage)
-  const [businesses, setBusinesses] = useState<Business[]>(INITIAL_BUSINESSES);
-  const [healthBreakdown, setHealthBreakdown] = useState<HealthBreakdown>(INITIAL_HEALTH_BREAKDOWN);
-  const [priorities, setPriorities] = useState<PriorityItem[]>(INITIAL_PRIORITIES);
-  const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS);
-  const [activities, setActivities] = useState<Activity[]>(INITIAL_ACTIVITIES);
-  const [financials, setFinancials] = useState<FinancialSnapshot>(INITIAL_FINANCIALS);
-  const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
-  const [over50Stats, setOver50Stats] = useState<Over50FitLifeStats>(INITIAL_OVER50_STATS);
-  const [nutriPlanStats, setNutriPlanStats] = useState<NutriPlanProStats>(INITIAL_NUTRIPLAN_STATS);
-  const [kimItems, setKimItems] = useState<KimClosetItem[]>(INITIAL_KIM_ITEMS);
-  const [teamRhinoStats, setTeamRhinoStats] = useState<TeamRhinoStats>(INITIAL_TEAM_RHINO);
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [agents, setAgents] = useState<AIAgent[]>(INITIAL_AGENTS);
-  const [automations, setAutomations] = useState<Automation[]>(INITIAL_AUTOMATIONS);
-  const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>(INITIAL_AUTOMATION_RUNS);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(INITIAL_OPPORTUNITIES);
-  const [approvals, setApprovals] = useState<Approval[]>(INITIAL_APPROVALS);
-  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
-  const [integrations, setIntegrations] = useState<Integration[]>(INITIAL_INTEGRATIONS);
-  const [contentItems, setContentItems] = useState<ContentItem[]>(INITIAL_CONTENT);
+  // State data (restored from local storage, falling back to demo data)
+  const [businesses, setBusinesses] = useState<Business[]>(persisted.businesses);
+  const [healthBreakdown, setHealthBreakdown] = useState<HealthBreakdown>(persisted.healthBreakdown);
+  const [priorities, setPriorities] = useState<PriorityItem[]>(persisted.priorities);
+  const [alerts, setAlerts] = useState<Alert[]>(persisted.alerts);
+  const [activities, setActivities] = useState<Activity[]>(persisted.activities);
+  const [financials, setFinancials] = useState<FinancialSnapshot>(persisted.financials);
+  const [leads, setLeads] = useState<Lead[]>(persisted.leads);
+  const [customers, setCustomers] = useState<Customer[]>(persisted.customers);
+  const [over50Stats, setOver50Stats] = useState<Over50FitLifeStats>(persisted.over50Stats);
+  const [nutriPlanStats, setNutriPlanStats] = useState<NutriPlanProStats>(persisted.nutriPlanStats);
+  const [kimItems, setKimItems] = useState<KimClosetItem[]>(persisted.kimItems);
+  const [teamRhinoStats, setTeamRhinoStats] = useState<TeamRhinoStats>(persisted.teamRhinoStats);
+  const [projects, setProjects] = useState<Project[]>(persisted.projects);
+  const [tasks, setTasks] = useState<Task[]>(persisted.tasks);
+  const [agents, setAgents] = useState<AIAgent[]>(persisted.agents);
+  const [automations, setAutomations] = useState<Automation[]>(persisted.automations);
+  const [automationRuns, setAutomationRuns] = useState<AutomationRun[]>(persisted.automationRuns);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(persisted.opportunities);
+  const [approvals, setApprovals] = useState<Approval[]>(persisted.approvals);
+  const [notifications, setNotifications] = useState<AppNotification[]>(persisted.notifications);
+  const [integrations, setIntegrations] = useState<Integration[]>(persisted.integrations);
+  const [contentItems, setContentItems] = useState<ContentItem[]>(persisted.contentItems);
 
-  // Try to load persisted state on initial render
+  const currentState = (): PersistedState => ({
+    dataMode,
+    businesses,
+    healthBreakdown,
+    priorities,
+    alerts,
+    activities,
+    financials,
+    leads,
+    customers,
+    over50Stats,
+    nutriPlanStats,
+    kimItems,
+    teamRhinoStats,
+    projects,
+    tasks,
+    agents,
+    automations,
+    automationRuns,
+    opportunities,
+    approvals,
+    notifications,
+    integrations,
+    contentItems
+  });
+
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('racerops_persisted_state');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.businesses) setBusinesses(parsed.businesses);
-        if (parsed.financials) setFinancials(parsed.financials);
-        if (parsed.leads) setLeads(parsed.leads);
-        if (parsed.kimItems) setKimItems(parsed.kimItems);
-        if (parsed.tasks) setTasks(parsed.tasks);
-        if (parsed.priorities) setPriorities(parsed.priorities);
-        if (parsed.alerts) setAlerts(parsed.alerts);
-        if (parsed.dataMode) setDataMode(parsed.dataMode);
-      }
-    } catch (e) {
-      // Ignore parsing errors
-    }
-  }, []);
-
-  // Persist state updates to local storage
-  const persistState = (newMode?: DataMode) => {
-    try {
-      const stateToSave = {
-        dataMode: newMode || dataMode,
-        businesses,
-        financials,
-        leads,
-        kimItems,
-        tasks,
-        priorities,
-        alerts
-      };
-      localStorage.setItem('racerops_persisted_state', JSON.stringify(stateToSave));
-    } catch (e) {
-      // Ignore storage errors
-    }
-  };
+    savePersistedState(currentState());
+  }, [dataMode, businesses, healthBreakdown, priorities, alerts, activities, financials, leads, customers, over50Stats, nutriPlanStats, kimItems, teamRhinoStats, projects, tasks, agents, automations, automationRuns, opportunities, approvals, notifications, integrations, contentItems]);
 
   // Toast feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -282,9 +303,15 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setAlerts([]);
     setApprovals([]);
     setTasks([]);
+    setCustomers([]);
+    setProjects([]);
+    setOpportunities([]);
+    setNotifications([]);
+    setContentItems([]);
+    setAutomationRuns([]);
     setActivities([
       {
-        id: `act-${Date.now()}`,
+        id: newId('act'),
         type: 'alert',
         title: 'Blank Slate Initialized',
         description: 'All sample data cleared. Ready for live business records and CSV imports.',
@@ -294,10 +321,6 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     ]);
     setDataMode('blank');
-    try {
-      localStorage.removeItem('racerops_persisted_state');
-      localStorage.setItem('racerops_mode', 'blank');
-    } catch (e) {}
     showToast('Sample data erased. Blank slate active with all cards ready!');
   };
 
@@ -316,30 +339,25 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setApprovals(INITIAL_APPROVALS);
     setTasks(INITIAL_TASKS);
     setActivities(INITIAL_ACTIVITIES);
+    setCustomers(INITIAL_CUSTOMERS);
+    setProjects(INITIAL_PROJECTS);
+    setAgents(INITIAL_AGENTS);
+    setAutomations(INITIAL_AUTOMATIONS);
+    setAutomationRuns(INITIAL_AUTOMATION_RUNS);
+    setOpportunities(INITIAL_OPPORTUNITIES);
+    setNotifications(INITIAL_NOTIFICATIONS);
+    setIntegrations(INITIAL_INTEGRATIONS);
+    setContentItems(INITIAL_CONTENT);
     setDataMode('demo');
-    try {
-      localStorage.removeItem('racerops_persisted_state');
-      localStorage.setItem('racerops_mode', 'demo');
-    } catch (e) {}
     showToast('Demo data reloaded for testing.');
   };
 
   // BACKUP EXPORT & IMPORT
   const exportDatabaseJson = () => {
     const backup = {
-      version: '1.0',
+      version: '1.1',
       exportedAt: new Date().toISOString(),
-      businesses,
-      financials,
-      leads,
-      customers,
-      kimItems,
-      teamRhinoStats,
-      projects,
-      tasks,
-      automations,
-      agents,
-      approvals
+      ...currentState()
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -351,21 +369,45 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     showToast('Database exported to JSON file.');
   };
 
-  const importDatabaseJson = (json: any) => {
-    if (json.businesses) setBusinesses(json.businesses);
-    if (json.financials) setFinancials(json.financials);
-    if (json.leads) setLeads(json.leads);
-    if (json.kimItems) setKimItems(json.kimItems);
-    if (json.tasks) setTasks(json.tasks);
-    setDataMode('live');
-    showToast('Database restored successfully from JSON backup.');
+  const importDatabaseJson = (json: unknown): boolean => {
+    const sections = pickSections(json, DEMO_STATE);
+    const restored = Object.keys(sections).filter(k => k !== 'dataMode');
+    if (restored.length === 0) {
+      showToast('Backup file contains no recognizable RacerOps data.');
+      return false;
+    }
+    if (sections.businesses) setBusinesses(sections.businesses);
+    if (sections.healthBreakdown) setHealthBreakdown(sections.healthBreakdown);
+    if (sections.priorities) setPriorities(sections.priorities);
+    if (sections.alerts) setAlerts(sections.alerts);
+    if (sections.activities) setActivities(sections.activities);
+    if (sections.financials) setFinancials(sections.financials);
+    if (sections.leads) setLeads(sections.leads);
+    if (sections.customers) setCustomers(sections.customers);
+    if (sections.over50Stats) setOver50Stats(sections.over50Stats);
+    if (sections.nutriPlanStats) setNutriPlanStats(sections.nutriPlanStats);
+    if (sections.kimItems) setKimItems(sections.kimItems);
+    if (sections.teamRhinoStats) setTeamRhinoStats(sections.teamRhinoStats);
+    if (sections.projects) setProjects(sections.projects);
+    if (sections.tasks) setTasks(sections.tasks);
+    if (sections.agents) setAgents(sections.agents);
+    if (sections.automations) setAutomations(sections.automations);
+    if (sections.automationRuns) setAutomationRuns(sections.automationRuns);
+    if (sections.opportunities) setOpportunities(sections.opportunities);
+    if (sections.approvals) setApprovals(sections.approvals);
+    if (sections.notifications) setNotifications(sections.notifications);
+    if (sections.integrations) setIntegrations(sections.integrations);
+    if (sections.contentItems) setContentItems(sections.contentItems);
+    setDataMode(sections.dataMode ?? 'live');
+    showToast(`Database restored from JSON backup (${restored.length} sections).`);
+    return true;
   };
 
   // ADD RECORD HANDLERS
   const addNewLead = (leadData: Omit<Lead, 'id'>) => {
     const newLead: Lead = {
       ...leadData,
-      id: `lead-${Date.now()}`
+      id: newId('lead')
     };
     setLeads(prev => [newLead, ...prev]);
     setBusinesses(prev =>
@@ -381,9 +423,22 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     showToast(`Lead added: ${newLead.name}`);
   };
 
-  const ingestLeadsList = (newLeads: Lead[]) => {
+  const ingestLeadsList = (newLeads: Lead[], skippedRows: number[] = []) => {
+    const skippedNote = skippedRows.length
+      ? ` Skipped ${skippedRows.length} row(s) with an unrecognized Business (rows ${skippedRows.join(', ')}).`
+      : '';
+    if (newLeads.length === 0) {
+      showToast(`No leads imported.${skippedNote}`);
+      return;
+    }
     setLeads(prev => [...newLeads, ...prev]);
-    showToast(`Successfully ingested ${newLeads.length} leads from CSV!`);
+    setBusinesses(prev =>
+      prev.map(b => {
+        const added = newLeads.filter(l => l.businessId === b.id).length;
+        return added ? { ...b, activeLeads: b.activeLeads + added } : b;
+      })
+    );
+    showToast(`Successfully ingested ${newLeads.length} leads from CSV!${skippedNote}`);
     addActivity({
       type: 'lead',
       title: 'Bulk Leads Ingested',
@@ -396,7 +451,7 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const addNewKimItem = (itemData: Omit<KimClosetItem, 'id'>) => {
     const newItem: KimClosetItem = {
       ...itemData,
-      id: `kc-${Date.now()}`
+      id: newId('kc')
     };
     setKimItems(prev => [newItem, ...prev]);
     addActivity({
@@ -481,7 +536,7 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const addActivity = (act: Omit<Activity, 'id' | 'timestamp'>) => {
     const newAct: Activity = {
       ...act,
-      id: `act-${Date.now()}`,
+      id: newId('act'),
       timestamp: 'Just now'
     };
     setActivities(prev => [newAct, ...prev]);
@@ -552,7 +607,7 @@ export const RacerOpsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const addTask = (taskData: Omit<Task, 'id' | 'createdAt'>) => {
     const newTask: Task = {
       ...taskData,
-      id: `task-${Date.now()}`,
+      id: newId('task'),
       createdAt: new Date().toISOString().split('T')[0]
     };
     setTasks(prev => [newTask, ...prev]);
