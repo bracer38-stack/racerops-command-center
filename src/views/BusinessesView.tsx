@@ -169,8 +169,8 @@ export const BusinessesView: React.FC = () => {
             <span className="text-lg font-bold text-slate-100 font-mono">
               ${currentBusiness.revenueMonth.toLocaleString()}
             </span>
-            <span className="text-[10px] text-emerald-400 font-mono block">
-              +{currentBusiness.revenueChangePct}% vs last month
+            <span className={`text-[10px] font-mono block ${currentBusiness.revenueMonth === 0 ? 'text-slate-400' : 'text-emerald-400'}`}>
+              {currentBusiness.revenueMonth === 0 ? 'Pre-Revenue (In Development / Beta)' : `+${currentBusiness.revenueChangePct}% vs last month`}
             </span>
           </div>
         </div>
@@ -436,17 +436,17 @@ export const BusinessesView: React.FC = () => {
                 ${nutriPlanStats.subscriptions.mrr.toLocaleString()}
               </p>
               <span className="text-[10px] text-slate-400 font-mono">
-                ARR: ${nutriPlanStats.subscriptions.arr.toLocaleString()}
+                {nutriPlanStats.subscriptions.mrr > 0 ? `ARR: $${nutriPlanStats.subscriptions.arr.toLocaleString()}` : 'Pre-Revenue (Paywall Pending)'}
               </span>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800">
               <span className="text-[10px] font-mono text-slate-400 uppercase">Trial Conversion Rate</span>
-              <p className="text-xl font-bold font-mono text-amber-400 mt-0.5">
-                {nutriPlanStats.subscriptions.conversionRate}%
+              <p className="text-xl font-bold font-mono text-slate-300 mt-0.5">
+                {nutriPlanStats.subscriptions.conversionRate > 0 ? `${nutriPlanStats.subscriptions.conversionRate}%` : '—'}
               </p>
-              <span className="text-[10px] text-amber-400/80 font-mono">
-                -1.8% dip vs Q2 target
+              <span className="text-[10px] text-slate-400 font-mono">
+                {nutriPlanStats.subscriptions.conversionRate > 0 ? '-1.8% dip vs Q2 target' : 'Beta / Free Installs Only'}
               </span>
             </div>
           </div>

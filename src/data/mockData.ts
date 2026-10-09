@@ -43,14 +43,14 @@ export const INITIAL_BUSINESSES: Business[] = [
     name: 'NutriPlanPro',
     tagline: 'Precision nutrition & macro-tracking mobile application',
     category: 'SaaS / Mobile App',
-    healthScore: 79,
-    status: 'attention',
-    revenueMonth: 11160,
-    revenuePriorMonth: 10840,
-    revenueChangePct: 2.9,
-    activeLeads: 42,
-    openAlerts: 2,
-    topOpportunity: 'Onboarding funnel redesign to reverse recent 1.8% free-to-trial conversion drop'
+    healthScore: 88,
+    status: 'healthy',
+    revenueMonth: 0,
+    revenuePriorMonth: 0,
+    revenueChangePct: 0,
+    activeLeads: 0,
+    openAlerts: 1,
+    topOpportunity: 'Integrate mobile store paywall to initiate first subscription conversions'
   },
   {
     id: 'kims-closet',
@@ -92,9 +92,9 @@ export const INITIAL_HEALTH_BREAKDOWN: HealthBreakdown = {
       maxScore: 25,
       weight: 25,
       status: 'good',
-      details: 'Portfolio pacing +11.2% MoM ($42,980 consolidated revenue). Healthy unit economics across all 4 verticals.',
-      deductionReason: 'NutriPlanPro subscription growth slowed slightly to +2.9% vs +8.0% historical benchmark.',
-      recommendation: 'Target NutriPlanPro churn reduction and test annual discount campaign.'
+      details: 'Portfolio pacing +13.6% MoM ($31,820 consolidated revenue). Healthy cash-flow across active operating businesses.',
+      deductionReason: 'NutriPlanPro is currently pre-revenue with mobile subscription paywall pending release.',
+      recommendation: 'Complete Google Play & App Store paywall setup to initiate first subscription conversions.'
     },
     {
       name: 'Lead & Sales Flow',
@@ -277,11 +277,11 @@ export const INITIAL_ACTIVITIES: Activity[] = [
   {
     id: 'act-3',
     type: 'app',
-    title: 'NutriPlanPro Annual Subscription Converted',
-    description: 'User @sarah_run converted from 14-day trial to $79.99/year Premium tier (iOS).',
+    title: 'NutriPlanPro v2.4.2 Store Release Update',
+    description: 'Google Play policy compliance review underway for Android build 143.',
     timestamp: '2 hours ago',
     businessId: 'nutriplanpro',
-    severity: 'success'
+    severity: 'info'
   },
   {
     id: 'act-4',
@@ -322,25 +322,25 @@ export const INITIAL_ACTIVITIES: Activity[] = [
 ];
 
 export const INITIAL_FINANCIALS: FinancialSnapshot = {
-  revenueThisMonth: 42980,
-  revenuePriorMonth: 38850,
-  revenueChangePct: 10.6,
+  revenueThisMonth: 31820,
+  revenuePriorMonth: 28010,
+  revenueChangePct: 13.6,
   expensesThisMonth: 12480,
-  profitEstimate: 30500,
-  profitMarginPct: 70.9,
+  profitEstimate: 19340,
+  profitMarginPct: 60.8,
   recurringBurn: 4150,
   revenueByBusiness: [
-    { businessId: 'over50fitlife', name: 'Over50FitLife', revenue: 14280, pctOfTotal: 33.2 },
-    { businessId: 'nutriplanpro', name: 'NutriPlanPro', revenue: 11160, pctOfTotal: 26.0 },
-    { businessId: 'team-rhino', name: 'Team Rhino', revenue: 9120, pctOfTotal: 21.2 },
-    { businessId: 'kims-closet', name: "Kim's Closet Boutique", revenue: 8420, pctOfTotal: 19.6 }
+    { businessId: 'over50fitlife', name: 'Over50FitLife', revenue: 14280, pctOfTotal: 44.9 },
+    { businessId: 'team-rhino', name: 'Team Rhino', revenue: 9120, pctOfTotal: 28.7 },
+    { businessId: 'kims-closet', name: "Kim's Closet Boutique", revenue: 8420, pctOfTotal: 26.4 },
+    { businessId: 'nutriplanpro', name: 'NutriPlanPro', revenue: 0, pctOfTotal: 0.0 }
   ],
   monthlyCashFlow: [
-    { month: 'May 2026', revenue: 31200, expenses: 9800, profit: 21400 },
-    { month: 'Jun 2026', revenue: 34500, expenses: 10400, profit: 24100 },
-    { month: 'Jul 2026', revenue: 36800, expenses: 11100, profit: 25700 },
-    { month: 'Aug 2026', revenue: 38850, expenses: 11900, profit: 26950 },
-    { month: 'Sep 2026', revenue: 42980, expenses: 12480, profit: 30500 }
+    { month: 'May 2026', revenue: 20400, expenses: 8200, profit: 12200 },
+    { month: 'Jun 2026', revenue: 23500, expenses: 8900, profit: 14600 },
+    { month: 'Jul 2026', revenue: 25600, expenses: 9400, profit: 16200 },
+    { month: 'Aug 2026', revenue: 28010, expenses: 10100, profit: 17910 },
+    { month: 'Sep 2026', revenue: 31820, expenses: 12480, profit: 19340 }
   ]
 };
 
@@ -516,22 +516,22 @@ export const INITIAL_OVER50_STATS: Over50FitLifeStats = {
 
 export const INITIAL_NUTRIPLAN_STATS: NutriPlanProStats = {
   users: {
-    total: 14820,
-    newMonth: 1840,
-    free: 13580,
-    premium: 1240,
-    active: 9450,
-    inactive: 5370
+    total: 2450,
+    newMonth: 380,
+    free: 2450,
+    premium: 0,
+    active: 1680,
+    inactive: 770
   },
   subscriptions: {
-    monthly: 890,
-    annual: 350,
-    newMonth: 142,
-    renewed: 1045,
-    canceled: 38,
-    conversionRate: 6.4,
-    mrr: 11160,
-    arr: 133920
+    monthly: 0,
+    annual: 0,
+    newMonth: 0,
+    renewed: 0,
+    canceled: 0,
+    conversionRate: 0,
+    mrr: 0,
+    arr: 0
   },
   platforms: {
     ios: {
@@ -1151,14 +1151,14 @@ export const INITIAL_OPPORTUNITIES: Opportunity[] = [
   },
   {
     id: 'opp-2',
-    title: 'NutriPlanPro Free-to-Trial Conversion Dip (-1.8%)',
+    title: 'NutriPlanPro Mobile Paywall & In-App Subscription Setup',
     businessId: 'nutriplanpro',
     category: 'product',
-    evidence: 'Users dropping off at the manual food logging onboarding step before discovering macro rings.',
-    recommendation: 'Accelerate release of AI Meal Photo Recognition feature to remove initial logging friction.',
-    expectedImpact: 'Projected recovery of ~$1,400 monthly incremental recurring revenue.',
+    evidence: 'App currently free with 2,450 beta installs; zero paid subscription tiers configured in store builds.',
+    recommendation: 'Implement StoreKit 2 & Google Play Billing subscription paywall ($9.99/mo) to begin monetization.',
+    expectedImpact: 'Establishes initial recurring SaaS revenue stream from active user base.',
     confidence: 'high',
-    priority: 'critical',
+    priority: 'high',
     estimatedEffort: '1 week',
     status: 'in_progress'
   },

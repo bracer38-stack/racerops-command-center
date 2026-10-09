@@ -260,11 +260,10 @@ export const CommandCenterView: React.FC = () => {
                     </span>
                     <span
                       className={`text-[11px] font-mono font-medium ${
-                        biz.revenueChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                        biz.revenueMonth === 0 ? 'text-slate-400' : (biz.revenueChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400')
                       }`}
                     >
-                      {biz.revenueChangePct >= 0 ? '+' : ''}
-                      {biz.revenueChangePct}%
+                      {biz.revenueMonth === 0 ? 'Pre-Revenue' : `${biz.revenueChangePct >= 0 ? '+' : ''}${biz.revenueChangePct}%`}
                     </span>
                   </div>
                   <span className="text-[10px] text-slate-400 font-mono">Month-to-Date</span>

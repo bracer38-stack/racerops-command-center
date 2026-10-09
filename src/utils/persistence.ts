@@ -24,7 +24,7 @@ import {
   TeamRhinoStats
 } from '../types';
 
-export const STORAGE_KEY = 'racerops_persisted_state';
+export const STORAGE_KEY = 'racerops_persisted_state_v2';
 
 export interface PersistedState {
   dataMode: DataMode;
@@ -94,7 +94,15 @@ export function loadPersistedState(
 ): Partial<PersistedState> {
   try {
     const saved = storage?.getItem(STORAGE_KEY);
-    return saved ? pickSections(JSON.parse(saved), defaults) : {};
+    if (!saved) {
+      try {
+        (storage as unknown as Storage)?.removeItem?.('racerops_persisted_state');
+      } catch {
+        // Ignore in restricted environments
+      }
+      return {};
+    }
+    return pickSections(JSON.parse(saved), defaults);
   } catch {
     return {};
   }
