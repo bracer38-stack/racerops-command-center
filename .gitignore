@@ -24,3 +24,6 @@ dist-ssr
 .DS_Store
 screenshots/
 *.tsbuildinfo
+data/
+*.sqlite*
+coverage/

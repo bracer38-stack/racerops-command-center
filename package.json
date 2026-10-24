@@ -3,29 +3,47 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -k \"node --watch server/index.mjs\" \"vite --host 0.0.0.0\"",
+    "start": "node server/index.mjs",
+    "typecheck": "tsc -b",
+    "lint": "eslint server src/live vite.config.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run src/tests && node --test server/test/*.test.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "better-sqlite3": "12.4.1",
     "clsx": "^2.1.1",
+    "csv-parse": "7.0.2",
+    "express": "5.1.0",
+    "express-rate-limit": "8.1.1",
+    "helmet": "8.1.0",
     "lucide-react": "^1.51.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tailwind-merge": "^3.7.0",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "zod": "4.6.6"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "9.2.1",
+    "eslint": "10.13.0",
+    "globals": "16.5.0",
     "playwright-core": "^1.63.0",
     "typescript": "~6.0.2",
-    "vite": "^8.3.0",
-    "vitest": "^4.1.11"
+    "typescript-eslint": "8.72.0",
+    "vite": "^8.3.3",
+    "vitest": "^4.1.12"
   }
 }

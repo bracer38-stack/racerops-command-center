@@ -1,0 +1,30 @@
+# Optional deployment target; creating this file does not provision or deploy a service.
+services:
+  - type: web
+    name: racerops-live-command-hub
+    runtime: node
+    plan: starter
+    numInstances: 1
+    buildCommand: corepack pnpm@10.17.1 install --frozen-lockfile && corepack pnpm@10.17.1 build
+    startCommand: node server/index.mjs
+    healthCheckPath: /api/health
+    autoDeployTrigger: "off"
+    disk:
+      name: racerops-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22.23.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_PATH
+        value: /var/data/racerops.sqlite
+      - key: TRUST_PROXY
+        value: "1"
+      - key: HUB_PASSWORD
+        sync: false
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
