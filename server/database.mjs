@@ -10,24 +10,32 @@ export function openStore(path) {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
+  if (db.pragma('user_version', { simple: true }) > 2) { db.close(); throw new Error('This database requires a newer RacerOps server.'); }
   const bools = new Set(['actionRequired', 'done', 'read']);
-  for (const [name, schema] of Object.entries(schemas)) {
-    const columns = Object.keys(schema.shape).map(key => {
-      const type = key === 'price' ? 'REAL' : bools.has(key) ? 'INTEGER NOT NULL' : 'TEXT';
-      return `"${key}" ${type}${name === 'todos' && key === 'appId' ? ' REFERENCES apps(id) ON DELETE CASCADE' : ''}`;
-    });
-    db.exec(`CREATE TABLE IF NOT EXISTS ${name} (id TEXT PRIMARY KEY, ${columns.join(',')}, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL)`);
-  }
-  db.exec(`
+  db.transaction(() => {
+    for (const [name, schema] of Object.entries(schemas)) {
+      const columns = Object.keys(schema.shape).map(key => {
+        const type = key === 'price' ? 'REAL' : bools.has(key) ? 'INTEGER NOT NULL' : 'TEXT';
+        return `"${key}" ${type}${name === 'todos' && key === 'appId' ? ' REFERENCES apps(id) ON DELETE CASCADE' : ''}`;
+      });
+      db.exec(`CREATE TABLE IF NOT EXISTS ${name} (id TEXT PRIMARY KEY, ${columns.join(',')}, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL)`);
+    }
+    if (!db.pragma('table_info(inventory)').some(column => column.name === 'imageUrl')) db.exec("ALTER TABLE inventory ADD COLUMN imageUrl TEXT NOT NULL DEFAULT ''");
+    db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS inventory_sku ON inventory(sku COLLATE NOCASE) WHERE sku <> '';
     CREATE UNIQUE INDEX IF NOT EXISTS alerts_external ON alerts(account, externalId) WHERE externalId <> '';
     CREATE UNIQUE INDEX IF NOT EXISTS files_external ON files(cloud, account, externalId) WHERE externalId <> '';
     CREATE TABLE IF NOT EXISTS sessions (hash TEXT PRIMARY KEY, expiresAt INTEGER NOT NULL, credential TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS oauth_states (hash TEXT PRIMARY KEY, provider TEXT NOT NULL, sessionHash TEXT NOT NULL, verifier TEXT NOT NULL, expiresAt INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS connections (id TEXT PRIMARY KEY, provider TEXT NOT NULL, account TEXT NOT NULL, tokens TEXT NOT NULL, lastSync TEXT, error TEXT, UNIQUE(provider, account));
-    CREATE TABLE IF NOT EXISTS webhook_events (id TEXT PRIMARY KEY, hash TEXT NOT NULL, receivedAt TEXT NOT NULL);
-    PRAGMA user_version = 1;
-  `);
+    CREATE TABLE IF NOT EXISTS webhook_events (id TEXT PRIMARY KEY, hash TEXT NOT NULL, receivedAt TEXT NOT NULL, type TEXT NOT NULL DEFAULT '', recordId TEXT NOT NULL DEFAULT '');
+    CREATE INDEX IF NOT EXISTS webhook_received ON webhook_events(receivedAt DESC);
+    PRAGMA user_version = 2;
+    `);
+    for (const column of ['type', 'recordId']) {
+      if (!db.pragma('table_info(webhook_events)').some(field => field.name === column)) db.exec(`ALTER TABLE webhook_events ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
+    }
+  })();
 
   function table(name) { if (!Object.hasOwn(schemas, name)) throw new HttpError(404, 'Unknown resource'); return name; }
   function decode(row) {

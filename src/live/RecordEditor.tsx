@@ -10,6 +10,7 @@ const fields: Record<Exclude<Resource, 'todos'>, Field[]> = {
     { key: 'title', label: 'Item title', required: true }, { key: 'sku', label: 'SKU (unique, optional)' },
     { key: 'brand', label: 'Brand' }, { key: 'size', label: 'Size' }, { key: 'color', label: 'Color' },
     { key: 'price', label: 'Listing price ($)', type: 'number' },
+    { key: 'imageUrl', label: 'Photo URL (HTTPS)', type: 'url' },
     { key: 'status', label: 'Status', options: ['Needs Review', 'Needs Measurements', 'Ready for Vendoo', 'Listed on Vendoo', 'Sold'] },
     { key: 'season', label: 'Season', options: ['All-Season', 'Spring/Summer', 'Fall/Winter'] },
     { key: 'platforms', label: 'Platforms' }, { key: 'sourceBatch', label: 'Source batch' }, { key: 'notes', label: 'Notes & measurements', type: 'textarea' },
@@ -72,7 +73,7 @@ export function RecordEditor({ resource, record, close, saved }: { resource: Exc
             {field.options ? <select value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })}>
               {!field.options.includes(form[field.key]) && <option value={form[field.key]}>{form[field.key]}</option>}
               {field.options.map(v => <option key={v}>{v}</option>)}
-            </select> : field.type === 'textarea' ? <textarea rows={4} value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })} /> : <input autoFocus={field.required} type={field.type || 'text'} required={field.required} min={field.type === 'number' ? 0 : undefined} step={field.type === 'number' ? '0.01' : undefined} maxLength={field.type === 'number' ? undefined : 1000} value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })} />}
+            </select> : field.type === 'textarea' ? <textarea rows={4} value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })} /> : <input autoFocus={field.required} type={field.type || 'text'} required={field.required} min={field.type === 'number' ? 0 : undefined} step={field.type === 'number' ? '0.01' : undefined} maxLength={field.type === 'number' ? undefined : field.type === 'url' ? 2000 : 1000} value={form[field.key]} onChange={e => setForm({ ...form, [field.key]: e.target.value })} />}
           </label>)}
         </div>
         {error && <p className="hub-error" role="alert">{error}</p>}

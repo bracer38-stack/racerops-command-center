@@ -103,6 +103,10 @@ SKU is case-insensitively unique. Missing SKUs use a Vendoo item ID or determini
 
 ## Signed n8n deliveries
 
+Connections now includes an n8n setup panel with a copyable delivery URL, example payloads for all five supported event types, signing instructions, and the latest 20 **accepted** delivery receipts. Receipts are owner-authenticated metadata (event ID, type, saved record ID, timestamp), never request bodies, tokens, signing secrets, or hashes. A configured secret means the server can accept events—not that n8n is connected or sending. Rejected requests must be diagnosed from the HTTP response in n8n; this is not a workflow editor or execution-history viewer.
+
+Outputs render in existing views: notifications → Morning brief / Automation inbox; alerts → Morning brief / action stream; inventory → Kim’s Closet; files → Cloud files; tasks → App tracker. The active dashboard refreshes every minute, or immediately on a manual refresh. `GET /api/webhooks/n8n/deliveries` requires the owner session and returns a total plus at most 20 recent receipts. Older receipts without type metadata appear as legacy events. Receipts are retained after business-record deletion/restore.
+
 `POST /api/webhooks/n8n` is the only automation endpoint; the old fake `/api/webhook/*` receivers were removed. It uses HMAC instead of browser cookies. Configure `WEBHOOK_SECRET` on both ends, and send **the exact raw JSON string you sign**, not a later reserialized object.
 
 ```js
@@ -129,6 +133,16 @@ Use an n8n Crypto/HMAC node or a Code node if your n8n host permits Node crypto.
 Supported types: `notification`, `inventory`, `alert`, `file`, `todo`; `data` follows the schemas in `server/schema.mjs`. Required fields: notification `title`; inventory `title`; alert `account` + `subject`; file `name`; todo `text` (optional `appId` must exist). Business values: `Kim's Closet`, `Over50FitLife`, `App Studio`, `Dual Business`. SKU/external IDs upsert inventory/alerts/files. Event receipts persist independently of JSON restores; replaying old event IDs after restoring does not recreate records.
 
 ## REST API and assistant
+
+### Inventory photos and existing imports
+
+Inventory supports an optional `imageUrl` (HTTPS, max 2,000 characters, no embedded URL credentials). Vendoo import recognizes Image URL / Photo URL, Images / Photos / Image URLs, primary/main image fields, and numbered Image/Photo/Picture columns. A cell can contain one URL, a JSON array of strings or `{ "url": "…" }` objects, or URLs separated by newline, pipe, semicolon, or a comma followed by another URL. The first nonempty photo is used; numbered fields sort naturally. Unsupported/unsafe photo values are row errors shown before import. No file extension is required for CDN image links.
+
+Cards and the import preview show thumbnails with click-to-enlarge native dialogs, keyboard Escape/Close, and a missing/broken-photo fallback. Edit item → Photo URL can add, replace, or clear the image. Photos remain on their external host (not downloaded to SQLite); HTTPS image loading is allowed by CSP and sends no referrer. Signed/expired URLs or links requiring authentication might not display. No server-side image proxy, photo uploads, full gallery, or private Vendoo login is provided.
+
+To attach photos to already imported items, preview the same CSV and select **Photos only — update matching SKUs, keep everything else**. This updates only photo links on case-insensitively matched SKUs, preserves prices/notes/status/business and IDs, and skips unmatched SKUs or blank photos. Normal CSV updates also keep the existing image when the CSV photo is blank/missing. If the CSV has no SKU or Vendoo/item ID, fallback SKUs depend on the full original row; use the original export or add a stable SKU before matching. Back up before any import. The real owner CSV's headers and URL accessibility still need checking.
+
+SQLite upgrades automatically and transactionally to schema version 2, adding photo URLs and receipt metadata without replacing business data, OAuth connections, sessions, or replay receipts. JSON backup version stays at 1; older backups without photos restore with empty photo fields. Take a JSON backup and a consistent disk/database backup before the **later owner-approved deployment**. This change does not deploy itself, re-import a CSV, or configure an n8n workflow.
 
 All routes except health, login, and signed webhook require the session cookie. For mutation requests include `Origin: APP_URL` and JSON Content-Type. Login: `POST /api/auth/login` with `{ "password": "..." }`; logout: `POST /api/auth/logout`; session check: `GET /api/auth/session`.
 

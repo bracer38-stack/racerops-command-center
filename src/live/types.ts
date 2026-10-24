@@ -3,7 +3,7 @@ export type Resource = 'inventory' | 'alerts' | 'files' | 'apps' | 'todos' | 'no
 export interface RecordMeta { id: string; createdAt: string; updatedAt: string }
 export interface Inventory extends RecordMeta {
   sku: string; title: string; brand: string; size: string; color: string; price: number | null;
-  status: string; notes: string; season: string; platforms: string; sourceBatch: string; business: Business;
+  status: string; notes: string; season: string; platforms: string; sourceBatch: string; business: Business; imageUrl: string;
 }
 export interface Alert extends RecordMeta {
   account: string; externalId: string; from: string; date: string; subject: string; summary: string;
@@ -21,4 +21,6 @@ export interface Connection { id: string; provider: 'google' | 'onedrive'; accou
 export interface ConnectorStatus { googleConfigured: boolean; onedriveConfigured: boolean; webhookConfigured: boolean; aiConfigured: boolean; connections: Connection[]; syncScope: string }
 export interface Citation { table: Resource; id: string; label: string }
 export interface ChatMessage { role: 'assistant' | 'user'; text: string; mode?: string; citations?: Citation[] }
-export interface CsvPreview { items: Inventory[]; rowCount: number; existing: number; errors: { row: number; error: string }[] }
+export interface CsvPreview { items: Inventory[]; rowCount: number; existing: number; withPhotos: number; errors: { row: number; error: string }[] }
+export interface WebhookDelivery { id: string; type: string; recordId: string; receivedAt: string }
+export interface WebhookStatus { configured: boolean; total: number; deliveries: WebhookDelivery[] }

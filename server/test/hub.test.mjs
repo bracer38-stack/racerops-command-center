@@ -147,6 +147,54 @@ test('n8n accepts signed deliveries once and detects conflicting event IDs', asy
   assert.equal((await webhook({ ...event, data: { title: 'Changed' } })).status, 409);
   assert.equal(store.list('notifications').items[0].title, fixtures.notifications.title);
 });
+test('n8n delivery receipts require login, expose no secrets/payloads, and exclude rejected/duplicate events', async () => {
+  assert.equal((await request('/webhooks/n8n/deliveries', 'GET', undefined, { Cookie: '' })).status, 401);
+  const event = { eventId: 'receipt-1', type: 'notification', data: fixtures.notifications };
+  const result = await (await webhook(event)).json();
+  await webhook(event);
+  await webhook({ ...event, eventId: 'forged' }, { signature: `sha256=${'0'.repeat(64)}` });
+  const response = await request('/webhooks/n8n/deliveries');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const status = await response.json();
+  assert.equal(status.configured, true); assert.equal(status.total, 1);
+  assert.equal(status.deliveries[0].recordId, result.recordId);
+  assert.deepEqual(Object.keys(status.deliveries[0]).sort(), ['id', 'receivedAt', 'recordId', 'type']);
+  assert.ok(!JSON.stringify(status).includes(env.WEBHOOK_SECRET));
+  assert.ok(!JSON.stringify(status).includes(fixtures.notifications.message));
+  for (let index = 0; index < 22; index++) await webhook({ ...event, eventId: `receipt-${index + 2}` });
+  const bounded = await (await request('/webhooks/n8n/deliveries')).json();
+  assert.equal(bounded.total, 23); assert.equal(bounded.deliveries.length, 20);
+  assert.equal(bounded.deliveries[0].id, 'receipt-23');
+});
+test('all supported n8n output types persist to their destination resources', async () => {
+  const destinations = { notification: 'notifications', inventory: 'inventory', alert: 'alerts', file: 'files', todo: 'todos' };
+  for (const [type, resource] of Object.entries(destinations)) {
+    const response = await webhook({ eventId: `destination-${type}`, type, data: fixtures[resource] });
+    assert.equal(response.status, 201);
+    const { recordId } = await response.json();
+    assert.ok(store.get(resource, recordId));
+    assert.equal(store.db.prepare('SELECT type FROM webhook_events WHERE recordId = ?').get(recordId).type, type);
+  }
+});
+test('photo CRUD, preview, photo-only HTTP import and n8n updates preserve saved photos', async () => {
+  const imageUrl = 'https://images.example.com/jacket.jpg';
+  const created = await (await request('/inventory', 'POST', { ...fixtures.inventory, imageUrl })).json();
+  for (const invalid of ['javascript:alert(1)', 'http://example.com/photo', 'https://user:secret@example.com/photo']) assert.equal((await request(`/inventory/${created.id}`, 'PATCH', { imageUrl: invalid })).status, 400);
+  const body = { filename: 'photos.csv', csv: 'Title,SKU,Image URL\nChanged,JKT-1,https://images.example.com/new.jpg', mode: 'photos' };
+  const preview = await (await request('/inventory/import/preview', 'POST', body)).json();
+  assert.equal(preview.withPhotos, 1); assert.equal(preview.existing, 1);
+  assert.equal(store.get('inventory', created.id).imageUrl, imageUrl);
+  assert.equal((await (await request('/inventory/import', 'POST', body)).json()).updated, 1);
+  assert.equal(store.get('inventory', created.id).title, fixtures.inventory.title);
+  await webhook({ eventId: 'photo-preserved', type: 'inventory', data: { ...fixtures.inventory, price: 50 } });
+  assert.equal(store.get('inventory', created.id).imageUrl, 'https://images.example.com/new.jpg');
+  await webhook({ eventId: 'photo-updated', type: 'inventory', data: { ...fixtures.inventory, imageUrl } });
+  assert.equal(store.get('inventory', created.id).imageUrl, imageUrl);
+  assert.equal((await request(`/inventory/${created.id}`, 'PATCH', { imageUrl: '' })).status, 200);
+  assert.equal(store.get('inventory', created.id).imageUrl, '');
+  const csp = (await request('/health')).headers.get('content-security-policy');
+  assert.match(csp, /img-src 'self' data: https:/); assert.match(csp, /script-src 'self'/);
+});
 test('n8n rejects forged, stale, malformed and invalid deliveries without persistence', async () => {
   const event = { eventId: 'event-1', type: 'notification', data: fixtures.notifications };
   assert.equal((await webhook(event, { signature: `sha256=${'0'.repeat(64)}` })).status, 401);

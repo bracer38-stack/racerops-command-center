@@ -16,7 +16,7 @@ export function createApp(store, env, { staticDir, disableRateLimits = false } =
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy);
   app.use(helmet({
-    contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'], fontSrc: ["'self'", 'https://fonts.gstatic.com'], imgSrc: ["'self'", 'data:'], connectSrc: ["'self'"], frameAncestors: ["'self'"] } },
+    contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'], fontSrc: ["'self'", 'https://fonts.gstatic.com'], imgSrc: ["'self'", 'data:', 'https:'], connectSrc: ["'self'"], frameAncestors: ["'self'"] } },
     strictTransportSecurity: config.production ? undefined : false,
   }));
   const limit = (windowMs, count) => disableRateLimits ? (_req, _res, next) => next() : rateLimit({ windowMs, limit: count, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'Too many requests. Try again shortly.' } });
@@ -47,8 +47,9 @@ export function createApp(store, env, { staticDir, disableRateLimits = false } =
       if (table === 'inventory' && data.sku) old = store.db.prepare('SELECT id FROM inventory WHERE sku = ? COLLATE NOCASE').get(data.sku);
       if (table === 'alerts' && data.externalId) old = store.db.prepare('SELECT id FROM alerts WHERE account = ? AND externalId = ?').get(data.account, data.externalId);
       if (table === 'files' && data.externalId) old = store.db.prepare('SELECT id FROM files WHERE cloud = ? AND account = ? AND externalId = ?').get(data.cloud, data.account, data.externalId);
+      if (table === 'inventory' && old && !Object.hasOwn(event.data, 'imageUrl')) data.imageUrl = store.get(table, old.id).imageUrl;
       const saved = store.put(table, data, old?.id || randomUUID());
-      store.db.prepare('INSERT INTO webhook_events VALUES (?, ?, ?)').run(event.eventId, digest, new Date().toISOString());
+      store.db.prepare('INSERT INTO webhook_events (id, hash, receivedAt, type, recordId) VALUES (?, ?, ?, ?, ?)').run(event.eventId, digest, new Date().toISOString(), event.type, saved.id);
       return saved;
     })();
     res.status(201).json({ received: true, duplicate: false, recordId: record.id });
@@ -61,6 +62,11 @@ export function createApp(store, env, { staticDir, disableRateLimits = false } =
   app.get('/api/auth/session', (_req, res) => res.json({ authenticated: true }));
   app.post('/api/auth/logout', auth.logout);
   app.get('/api/connectors', (_req, res) => res.json(cloud.status()));
+  app.get('/api/webhooks/n8n/deliveries', (_req, res) => res.json({
+    configured: Boolean(config.WEBHOOK_SECRET),
+    total: store.db.prepare('SELECT COUNT(*) n FROM webhook_events').get().n,
+    deliveries: store.db.prepare('SELECT id, type, recordId, receivedAt FROM webhook_events ORDER BY receivedAt DESC, rowid DESC LIMIT 20').all(),
+  }));
   app.get('/api/connectors/:provider/authorize', cloud.authorize);
   app.get('/api/connectors/:provider/callback', cloud.oauthCallback);
   app.post('/api/connectors/:id/sync', limit(60000, 10), cloud.sync);
@@ -74,11 +80,11 @@ export function createApp(store, env, { staticDir, disableRateLimits = false } =
     store.restore(payload);
     res.json({ restored: true });
   });
-  const csvBody = z.object({ csv: z.string().max(5 * 1024 * 1024), filename: z.string().trim().min(1).max(255), mode: z.enum(['skip', 'update']).default('skip') }).strict();
+  const csvBody = z.object({ csv: z.string().max(5 * 1024 * 1024), filename: z.string().trim().min(1).max(255), mode: z.enum(['skip', 'update', 'photos']).default('skip') }).strict();
   app.post('/api/inventory/import/preview', (req, res) => {
     const body = csvBody.parse(req.body), parsed = parseVendoo(body.csv, body.filename);
     const existing = parsed.items.filter(i => store.db.prepare('SELECT id FROM inventory WHERE sku = ? COLLATE NOCASE').get(i.sku)).length;
-    res.json({ items: parsed.items.slice(0, 20), rowCount: parsed.items.length, existing, errors: parsed.errors });
+    res.json({ items: parsed.items.slice(0, 20), rowCount: parsed.items.length, existing, withPhotos: parsed.items.filter(item => item.imageUrl).length, errors: parsed.errors });
   });
   app.post('/api/inventory/import', (req, res) => {
     const body = csvBody.parse(req.body), parsed = parseVendoo(body.csv, body.filename);

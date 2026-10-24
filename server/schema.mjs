@@ -9,13 +9,17 @@ export const safeUrl = z.string().max(2000).refine(value => {
   if (!value) return true;
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }, 'Use an HTTPS URL').default('');
+export const imageUrl = z.string().trim().max(2000).refine(value => {
+  if (!value) return true;
+  try { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password; } catch { return false; }
+}, 'Use an HTTPS image URL without embedded credentials').default('');
 
 export const schemas = {
   inventory: z.object({
     sku: text.max(150).default(''), title, brand: text.default(''), size: text.default(''),
     color: text.default(''), price: z.number().finite().min(0).max(1e9).nullable().default(null),
     status: title.default('Needs Review'), notes, season: text.default('All-Season'),
-    platforms: text.default('Vendoo Draft'), sourceBatch: text.default('Manual Entry'), business,
+    platforms: text.default('Vendoo Draft'), sourceBatch: text.default('Manual Entry'), business, imageUrl,
   }).strict(),
   alerts: z.object({
     account: z.email().max(320), externalId: text.default(''), from: text.default(''),
