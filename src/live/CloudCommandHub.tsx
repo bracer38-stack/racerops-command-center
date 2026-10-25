@@ -4,8 +4,11 @@ import { api, ApiError, downloadJSON } from './api';
 import { RecordEditor, businesses } from './RecordEditor';
 import { InventoryPhoto } from './InventoryPhoto';
 import { N8nSetup } from './N8nSetup';
+import { ThemeToggle } from './ThemeToggle';
+import { useHubTheme } from './theme';
 import type { Snapshot, ConnectorStatus, Resource, ChatMessage, Citation, CsvPreview, Inventory } from './types';
 import './hub.css';
+import './theme.css';
 
 type Tab = 'morning' | 'inventory' | 'files' | 'apps' | 'connectors';
 const tabs = [
@@ -25,6 +28,7 @@ function Empty({ title, detail, action }: { title: string; detail: string; actio
 }
 
 export default function CloudCommandHub() {
+  const { theme, toggleTheme } = useHubTheme();
   const [auth, setAuth] = useState<'loading' | 'login' | 'ready'>('loading');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null), [connections, setConnections] = useState<ConnectorStatus | null>(null);
   const [tab, setTab] = useState<Tab>('morning'), [search, setSearch] = useState(''), [business, setBusiness] = useState('ALL');
@@ -129,8 +133,9 @@ export default function CloudCommandHub() {
     } finally { setThinking(false); }
   }
 
-  if (auth === 'loading') return <main className="hub-login"><Cloud size={32}/><p>Opening your command hub…</p></main>;
-  if (auth === 'login') return <main className="hub-login">
+  if (auth === 'loading') return <main className="hub-login" data-hub-theme={theme}><Cloud size={32}/><p>Opening your command hub…</p></main>;
+  if (auth === 'login') return <main className="hub-login" data-hub-theme={theme}>
+    <div className="hub-login-theme"><ThemeToggle theme={theme} toggle={toggleTheme}/></div>
     <form onSubmit={login} className="hub-login-card">
       <div className="hub-logo"><Cloud size={25}/></div><span className="hub-eyebrow">RACEROPS / PRIVATE WORKSPACE</span>
       <h1>Everything you run.<br/><em>One command hub.</em></h1><p>Sign in to your business workspace. Your inventory, alerts, and to-dos stay in a protected server database.</p>
@@ -149,9 +154,9 @@ export default function CloudCommandHub() {
   const currentTab = tabs.find(t => t.id === tab)!;
   const totalFilters = Boolean(search || business !== 'ALL');
 
-  return <div className="hub-shell">
+  return <div className="hub-shell" data-hub-theme={theme}>
     <header className="hub-topbar"><a className="hub-brand" href="/"><span className="hub-logo"><Cloud size={24}/></span><span>RacerOps<span className="hub-brand-sub">LIVE COMMAND HUB</span></span></a>
-      <div className="hub-topbar-right"><span className={`hub-status ${offline ? 'hub-status-warn' : ''}`}><span/>{offline ? 'Offline · read-only view' : 'Database connected'}</span><button className="hub-icon" aria-label="Sign out" disabled={busy} onClick={() => void perform(async () => { await api('/auth/logout', { method: 'POST' }); clearSession(); })}><LogOut size={18}/></button></div>
+      <div className="hub-topbar-right"><span className={`hub-status ${offline ? 'hub-status-warn' : ''}`} title={offline ? 'Offline · read-only view' : 'Database connected'}><span/>{offline ? 'Offline · read-only view' : 'Database connected'}</span><ThemeToggle theme={theme} toggle={toggleTheme}/><button className="hub-icon" aria-label="Sign out" disabled={busy} onClick={() => void perform(async () => { await api('/auth/logout', { method: 'POST' }); clearSession(); })}><LogOut size={18}/></button></div>
     </header>
     <main className="hub-main">
       <section className="hub-intro"><div><span className="hub-eyebrow">YOUR BUSINESSES. IN FOCUS.</span><h1>Ready for your next move.</h1><p>Over50FitLife <span>/</span> Kim’s Closet Boutique <span>/</span> App Studio</p></div>

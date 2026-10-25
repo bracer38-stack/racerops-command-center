@@ -2,6 +2,10 @@
 
 Private, single-owner command center for **Over50FitLife** and **Kim’s Closet Boutique**. React/Vite frontend, Express 5 API, and persistent SQLite storage. The full-stack hub is at `/`; the old localStorage dashboard remains at `/legacy` and is **not migrated or cloud-connected**.
 
+## Appearance
+
+The live hub defaults to **Light**: soft off-white backgrounds, white cards, and dark text with teal/pink accents. The **Light/Dark switch** is on the sign-in screen and in the workspace header. The selection is saved as `racerops:hub-theme` in this browser's localStorage, survives sign-out/reloads, and follows changes in another tab. Each browser/device has its own choice; the OS dark-mode setting does not override the light default. If browser storage is blocked, switching still works for the open page but may not survive a reload. Native form controls and browser theme-color follow the selection; an installed PWA's launch screen uses the light default. The legacy dashboard is unchanged.
+
 ## Run locally
 
 Requires Node 22.13+ (Node 22 recommended), Corepack, and pnpm 10.17.1. Native SQLite needs Python/make/g++ if a prebuilt binary is unavailable.
