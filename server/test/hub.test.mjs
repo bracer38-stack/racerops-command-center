@@ -66,7 +66,7 @@ for (const [resource, data] of Object.entries(fixtures)) test(`${resource} CRUD 
   const patch = await request(`/${resource}/${row.id}`, 'PATCH', update);
   assert.equal(patch.status, 200);
   const changed = await patch.json();
-  assert.deepEqual(changed, { ...row, ...update, updatedAt: changed.updatedAt });
+  assert.deepEqual(changed, { ...row, ...update, ...(resource === 'alerts' ? { classificationOverride: true } : {}), updatedAt: changed.updatedAt });
   assert.equal((await request(`/${resource}/${row.id}`)).status, 200);
   const list = await (await request(`/${resource}?limit=1&offset=0`)).json();
   assert.equal(list.total, 1); assert.equal(list.items.length, 1);

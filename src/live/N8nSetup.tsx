@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Copy, Link2, RefreshCw } from 'lucide-react';
 import { api } from './api';
+import { formatDate } from '../../shared/operations.mjs';
 import type { WebhookStatus } from './types';
 
 export const webhookExamples = [
@@ -49,7 +50,7 @@ export function N8nSetup({ configured, origin }: { configured: boolean; origin: 
       <p role="status" className="hub-copy-status">{copied}</p>
       <div className="hub-delivery-heading"><h3>Recent accepted deliveries {status && <span>({status.total} total)</span>}</h3><button className="hub-button" disabled={loading} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={14}/>Refresh deliveries</button></div>
       {error && <p className="hub-error" role="alert">{error}</p>}
-      {!status && loading ? <p>Loading delivery receipts…</p> : status && (status.deliveries.length ? <ul className="hub-deliveries">{status.deliveries.map(delivery => <li key={delivery.id}><span className="hub-tag">{delivery.type || 'Legacy event'}</span><code>{delivery.id}</code><time dateTime={delivery.receivedAt}>{new Date(delivery.receivedAt).toLocaleString()}</time><span>Saved</span></li>)}</ul> : <p>No accepted deliveries yet. A configured secret does not mean a workflow has sent anything.</p>)}
+      {!status && loading ? <p>Loading delivery receipts…</p> : status && (status.deliveries.length ? <ul className="hub-deliveries">{status.deliveries.map(delivery => <li key={delivery.id}><span className="hub-tag">{delivery.type || 'Legacy event'}</span><code>{delivery.id}</code><time dateTime={delivery.receivedAt}>{formatDate(delivery.receivedAt)}</time><span>Saved</span></li>)}</ul> : <p>No accepted deliveries yet. A configured secret does not mean a workflow has sent anything.</p>)}
       <p className="hub-fine-print">Shows the latest 20 successfully saved events, not n8n’s workflow list or execution history. Rejected attempts are not saved here—check n8n’s HTTP response: 401 signature/timestamp, 400 invalid payload, 409 conflicting event ID or missing app, 503 server secret missing. A new accepted event returns 201; an identical retry returns 200 without creating another record. Receipts remain even if the business record is later deleted or restored.</p>
     </div>
   </section>;

@@ -3,7 +3,7 @@ import { X, Save } from 'lucide-react';
 import { api } from './api';
 import type { Resource } from './types';
 
-export const businesses = ["Kim's Closet", 'Over50FitLife', 'App Studio', 'Dual Business'];
+export const businesses = ["Kim's Closet", 'Over50FitLife', 'NutriPlanPro', 'App Studio', 'Dual Business'];
 type Field = { key: string; label: string; required?: boolean; type?: 'number' | 'textarea' | 'url' | 'email'; options?: string[] };
 const fields: Record<Exclude<Resource, 'todos'>, Field[]> = {
   inventory: [
