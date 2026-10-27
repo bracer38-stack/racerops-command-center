@@ -46,7 +46,9 @@ export function folderService(store, { enabled, accessToken, inFlight }) {
       }
     } else {
       let url = `${graphBase}/${parent ? `items/${encodeURIComponent(parent)}` : 'root'}/children?$top=200&$select=id,name,folder,parentReference`;
+      const collectionPath = new URL(url).pathname;
       for (let page = 0; page < 5 && url; page++) {
+        if (new URL(url).pathname !== collectionPath) throw new HttpError(502, 'Unexpected cloud response URL.');
         const result = await providerGet(record, url);
         for (const f of result.value || []) if (f.folder) folders.push({ id: f.id, name: f.name, path: f.parentReference?.path || '/' });
         url = result['@odata.nextLink'];
@@ -69,9 +71,10 @@ export function folderService(store, { enabled, accessToken, inFlight }) {
         const result = await providerGet(record, url);
         cache.set(id, result); return result;
       };
+      const driveRoot = requested.length && record.provider === 'google' ? await metadata('root') : null;
       for (const folder of requested) {
         const result = await metadata(folder.id);
-        if (folder.id === 'root' || result.id !== folder.id || (record.provider === 'google' ? result.trashed || result.mimeType !== 'application/vnd.google-apps.folder' : !result.folder || result.root)) throw new HttpError(400, 'Select a business folder, not the account root.');
+        if (folder.id === 'root' || result.id !== folder.id || (record.provider === 'google' ? result.id === driveRoot.id || result.trashed || result.mimeType !== 'application/vnd.google-apps.folder' : !result.folder || result.root)) throw new HttpError(400, 'Select a business folder, not the account root.');
         const parents = item => record.provider === 'google' ? item.parents || [] : item.parentReference?.id ? [item.parentReference.id] : [];
         const pending = [...parents(result)], ancestors = new Set();
         while (pending.length) {
@@ -140,8 +143,9 @@ export async function syncSelectedFiles(record, folders, get) {
     seen.add(folder.id);
     if (++visited > 100) throw new HttpError(422, 'More than 100 nested folders. Choose smaller business folders.');
     if (record.provider === 'google') {
-      let pageToken;
+      let pageToken, pages = 0;
       do {
+        if (++pages > 5) throw new HttpError(422, 'Too many items in one folder. Choose smaller business folders.');
         const url = new URL(googleBase);
         url.search = new URLSearchParams({ q: `'${folder.id.replaceAll("'", "\\'")}' in parents and trashed = false`, fields: 'nextPageToken,files(id,name,mimeType,webViewLink)', pageSize: '200', ...(pageToken ? { pageToken } : {}) }).toString();
         const result = await get(url.href);
@@ -153,6 +157,7 @@ export async function syncSelectedFiles(record, folders, get) {
       } while (pageToken && files.length < 200);
     } else {
       let url = `${graphBase}/items/${encodeURIComponent(folder.id)}/children?$top=200&$select=id,name,webUrl,parentReference,file,folder`;
+      const collectionPath = new URL(url).pathname;
       for (let page = 0; page < 5 && url && files.length < 200; page++) {
         const result = await get(url);
         for (const f of result.value || []) {
@@ -160,7 +165,7 @@ export async function syncSelectedFiles(record, folders, get) {
           else if (f.file && files.length < 200) files.push({ externalId: f.id, account: record.account, name: String(f.name).slice(0, 300), cloud: 'OneDrive', business: folder.business, folder: folder.name, folderId: folder.id, folderPathIds: JSON.stringify(folder.pathIds), status: 'Synced metadata', url: f.webUrl || '', source: 'OneDrive sync' });
         }
         url = result['@odata.nextLink'];
-        if (url && (new URL(url).origin !== 'https://graph.microsoft.com' || !new URL(url).pathname.startsWith('/v1.0/me/drive/'))) throw new HttpError(502, 'Unexpected cloud response URL.');
+        if (url && (new URL(url).origin !== 'https://graph.microsoft.com' || new URL(url).pathname !== collectionPath)) throw new HttpError(502, 'Unexpected cloud response URL.');
       }
     }
   }

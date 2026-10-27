@@ -20,6 +20,7 @@ export function FolderSettings({ connection, disabled, refreshed }: { connection
   async function browse(next: { id: string; name: string }[] = parent) {
     const result = await api<{ folders: FolderCandidate[] }>(`/connectors/${connection.id}/folders${next.length ? `?parent=${encodeURIComponent(next.at(-1)!.id)}` : ''}`);
     setParent(next); setCandidates(result.folders);
+    if (!result.folders.length) setNotice('No folders found in this location. Try another parent folder.');
   }
   async function save() {
     const result = await api<{ folders: SelectedFolder[] }>(`/connectors/${connection.id}/folders`, { method: 'PUT', body: JSON.stringify({ folders }) });

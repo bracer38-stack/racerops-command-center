@@ -2,8 +2,6 @@
 
 Private, single-owner command center for **Over50FitLife** and **Kim’s Closet Boutique**. React/Vite frontend, Express 5 API, and persistent SQLite storage. The full-stack hub is at `/`; the old localStorage dashboard remains at `/legacy` and is **not migrated or cloud-connected**.
 
-## Appearance
-
 ## Phase 1 preview and approval gate
 
 Phase 1 adds a five-move Morning Brief, marketing filtering/business tagging, review-only inventory suggestions, and compact business-grouped cloud files. Size/color suggestions only fill blank fields after explicit bulk approval; brand corrections also require approval. “Needs review” is derived from missing size, color, price, or photo, independently of the saved listing status. Displayed hub dates use America/New_York.
@@ -20,7 +18,7 @@ node server/migrate-phase-one.mjs --approve-phase-one-upgrade /absolute/path/to/
 
 The upgrade adds mail classification metadata, file-folder ancestry, and per-connection folder settings; it does not rewrite business records, tokens, sessions, or webhook receipts. The upgrade execution is intentionally deferred pending approval. Use only a fresh, never-before-used synthetic database path for preview/testing. JSON restore remains a separate destructive operation; folder selections and OAuth credentials are protected by the full SQLite backup, not the business JSON export.
 
-### Theme behavior
+## Appearance
 
 The live hub defaults to **Light**: soft off-white backgrounds, white cards, and dark text with teal/pink accents. The **Light/Dark switch** is on the sign-in screen and in the workspace header. The selection is saved as `racerops:hub-theme` in this browser's localStorage, survives sign-out/reloads, and follows changes in another tab. Each browser/device has its own choice; the OS dark-mode setting does not override the light default. If browser storage is blocked, switching still works for the open page but may not survive a reload. Native form controls and browser theme-color follow the selection; an installed PWA's launch screen uses the light default. The legacy dashboard is unchanged.
 
@@ -107,7 +105,7 @@ Replit deployment is not configured: choose a host/storage model first. Do not u
 2. Set redirect URI `https://YOUR-HUB/api/connectors/google/callback` (local development uses the matching `http://localhost:5173` origin). Set `APP_URL`, client ID/secret, and token encryption key on the server.
 3. Add `bracer38@gmail.com` and `robert@over50fitlife.com` as consent-screen test users when in testing mode. Workspace admins may need to approve scopes. Gmail read-only is a restricted scope; testing-mode refresh tokens can expire, and public distribution can require verification.
 4. Sign into the hub, open Connections, authorize the first account, then repeat for the second. Only these two verified Google email addresses are accepted.
-5. Click Sync now for each connection. Each sync reads up to 25 messages from the last 30 days and up to 200 recently modified non-folder Drive files. Gmail stars set action flags. New mail is **not polled in the background**; automate via n8n or sync manually. Local annotations may be replaced on the next sync.
+5. Choose Drive business folders in Connections, assign a business to each, and save. Sync now reads up to 25 messages from the last 30 days and up to 200 files under those selected folders. Direct messages/comments, sales, and App Store status changes set action flags; other synced mail defaults to Low. Owner classification overrides survive re-sync. New mail is **not polled in the background**; automate via n8n or sync manually.
 
 Mail snippets and metadata are saved, not full messages or attachments. Drive stores links/IDs, not file contents. Provider sync is transactional per account; deleted remote records are not removed locally. Disconnect removes local tokens; revoke provider consent in Google settings to fully revoke access.
 
@@ -115,7 +113,7 @@ Official references: [Google web OAuth](https://developers.google.com/identity/p
 
 ## Authorize OneDrive
 
-Register an application in Microsoft Entra ID supporting the desired personal/work accounts. Add a **Web** redirect URI `https://YOUR-HUB/api/connectors/onedrive/callback`, create a client secret, and configure delegated `User.Read`, `Files.Read`, and `offline_access` permissions. Set Microsoft client ID/secret, `APP_URL`, and the token encryption key. Authorize from Connections and sync manually. Up to 200 **root files** are indexed; recursive folders/pagination are not implemented. No file contents are downloaded. See [Microsoft auth code flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow) and [OneDrive children API](https://learn.microsoft.com/en-us/graph/api/driveitem-list-children).
+Register an application in Microsoft Entra ID supporting the desired personal/work accounts. Add a **Web** redirect URI `https://YOUR-HUB/api/connectors/onedrive/callback`, create a client secret, and configure delegated `User.Read`, `Files.Read`, and `offline_access` permissions. Set Microsoft client ID/secret, `APP_URL`, and the token encryption key. Authorize from Connections, choose business folders, assign their businesses, save, and sync manually. Up to 200 files under selected folders/descendants are indexed; personal root files are not synced. No file contents are downloaded. See [Microsoft auth code flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow) and [OneDrive children API](https://learn.microsoft.com/en-us/graph/api/driveitem-list-children).
 
 ## Vendoo CSV
 

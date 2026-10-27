@@ -108,7 +108,8 @@ export function connectors(store, config) {
       store.db.transaction(() => {
         for (const alert of alerts) {
           const old = store.db.prepare('SELECT id FROM alerts WHERE account = ? AND externalId = ?').get(alert.account, alert.externalId);
-          store.put('alerts', alert, old?.id || randomUUID());
+          const current = old ? store.get('alerts', old.id) : null;
+          store.put('alerts', current?.classificationOverride ? { ...alert, business: current.business, priority: current.priority, actionRequired: current.actionRequired, classificationOverride: true } : alert, old?.id || randomUUID());
         }
         for (const file of files) {
           const old = store.db.prepare('SELECT id FROM files WHERE cloud = ? AND account = ? AND externalId = ?').get(file.cloud, file.account, file.externalId);

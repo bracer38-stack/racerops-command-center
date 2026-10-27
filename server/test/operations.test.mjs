@@ -18,6 +18,8 @@ test('marketing detection uses headers, categories and sender identities; overri
   for (const metadata of [{ listUnsubscribe: true }, { mailLabels: 'INBOX CATEGORY_PROMOTIONS' }, { mailLabels: 'CATEGORY_UPDATES' }, { from: 'offers@example.com' }, { from: 'newsletter@example.com' }]) assert.equal(classifyAlert(alert(metadata)).promotional, true);
   const override = classifyAlert(alert({ classificationOverride: true, priority: 'Low', business: 'App Studio', actionRequired: false }));
   assert.equal(override.business, 'App Studio'); assert.equal(override.priority, 'Low'); assert.equal(override.actionRequired, false);
+  assert.equal(classifyAlert(alert({ classificationOverride: true, subject: 'New direct message', actionRequired: false })).actionRequired, false);
+  assert.equal(classifyAlert(alert({ source: 'n8n', business: 'Dual Business', from: 'TikTok' })).business, 'Over50FitLife');
 });
 test('suggestions only fill blank fields and clean exact brands; computed review ignores saved status', () => {
   assert.deepEqual(inventorySuggestions({ title: 'Blouse Size Large Navy/White', brand: 'akaria' }).map(s => [s.field, s.value]), [['size', 'Large'], ['color', 'Navy/White'], ['brand', 'AKIRA']]);

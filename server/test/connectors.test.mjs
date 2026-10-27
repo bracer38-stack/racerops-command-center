@@ -30,7 +30,7 @@ test('Google consent stores encrypted tokens, refreshes safely, syncs metadata i
     if (url.includes('userinfo')) return json({ email: 'bracer38@gmail.com', email_verified: true });
     assert.match(options.headers.Authorization, /refreshed-fixture-token/);
     if (url.includes('/messages?')) return json({ messages: [{ id: 'm1' }] });
-    if (url.includes('/messages/m1?')) return json({ id: 'm1', snippet: 'Buyer asks for measurements', labelIds: ['STARRED'], payload: { headers: [{ name: 'Subject', value: 'Measurements please' }, { name: 'From', value: 'Buyer' }] } });
+    if (url.includes('/messages/m1?')) return json({ id: 'm1', snippet: 'Buyer asks for measurements', labelIds: ['STARRED'], payload: { headers: [{ name: 'Subject', value: 'New direct message: Measurements please' }, { name: 'From', value: 'Buyer' }] } });
     if (url.includes('drive/v3/files')) return json({ files: [{ id: 'f1', name: 'Jacket photos', parents: ['parent1'], webViewLink: 'https://drive.google.com/file/d/f1' }] });
     throw new Error(`Unexpected fixture URL: ${url}`);
   });
@@ -40,6 +40,7 @@ test('Google consent stores encrypted tokens, refreshes safely, syncs metadata i
   assert.equal(location, '/?connected=1');
   assert.equal(store.db.prepare('SELECT COUNT(*) n FROM oauth_states').get().n, 0);
   const connection = store.db.prepare('SELECT * FROM connections').get();
+  store.db.prepare('INSERT INTO folder_settings (connectionId,folders,updatedAt) VALUES (?,?,?)').run(connection.id, JSON.stringify([{ id: 'parent1', name: 'Business', business: "Kim's Closet" }]), new Date().toISOString());
   assert.ok(!connection.tokens.includes('fixture-refresh'));
   assert.equal(cloud.status().connections[0].tokens, undefined);
   for (let n = 0; n < 2; n++) {
@@ -72,6 +73,7 @@ test('cloud fetch failures preserve the entire previous sync and record an hones
   const old = store.put('alerts', { account: 'bracer38@gmail.com', externalId: 'm1', subject: 'Old saved message' });
   const vault = tokenVault(config.TOKEN_ENCRYPTION_KEY);
   store.db.prepare('INSERT INTO connections (id,provider,account,tokens) VALUES (?,?,?,?)').run('c1', 'google', 'bracer38@gmail.com', vault.encrypt({ access_token: 'fixture', expires_at: Date.now() + 3600000 }));
+  store.db.prepare('INSERT INTO folder_settings (connectionId,folders,updatedAt) VALUES (?,?,?)').run('c1', JSON.stringify([{ id: 'business1', name: 'Business', business: "Kim's Closet" }]), new Date().toISOString());
   t.mock.method(globalThis, 'fetch', async url => {
     if (url.includes('/messages?')) return json({ messages: [{ id: 'm1' }] });
     if (url.includes('/messages/m1?')) return json({ id: 'm1', snippet: 'New message', payload: { headers: [{ name: 'Subject', value: 'New message' }] } });
@@ -82,13 +84,14 @@ test('cloud fetch failures preserve the entire previous sync and record an hones
   assert.equal(cloud.status().connections[0].lastSync, null);
   assert.match(cloud.status().connections[0].error, /Sync failed/);
 });
-test('OneDrive indexes only root file metadata and disconnect removes local tokens, not records', async t => {
+test('OneDrive indexes only selected business folder metadata and disconnect removes local tokens, not records', async t => {
   const { store, config, cloud } = fixture(t);
   const vault = tokenVault(config.TOKEN_ENCRYPTION_KEY);
   store.db.prepare('INSERT INTO connections (id,provider,account,tokens) VALUES (?,?,?,?)').run('ms1', 'onedrive', 'owner@example.com', vault.encrypt({ access_token: 'fixture-ms', expires_at: Date.now() + 3600000 }));
+  store.db.prepare('INSERT INTO folder_settings (connectionId,folders,updatedAt) VALUES (?,?,?)').run('ms1', JSON.stringify([{ id: 'business1', name: 'Business', business: 'NutriPlanPro' }]), new Date().toISOString());
   t.mock.method(globalThis, 'fetch', async url => {
-    assert.match(url, /drive\/root\/children/);
-    return json({ value: [{ id: 'file1', name: 'Review notes', webUrl: 'https://onedrive.live.com/file1', file: {}, parentReference: { path: '/drive/root:' } }, { id: 'folder1', name: 'A folder', folder: {} }] });
+    assert.match(url, /drive\/items\/business1\/children/);
+    return json({ value: [{ id: 'file1', name: 'Review notes', webUrl: 'https://onedrive.live.com/file1', file: {}, parentReference: { path: '/drive/root:/Business' } }] });
   });
   await cloud.sync({ params: { id: 'ms1' } }, { json(result) { assert.equal(result.files, 1); } });
   assert.equal(store.list('files').items[0].cloud, 'OneDrive');

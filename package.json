@@ -11,7 +11,7 @@
     "dev": "concurrently -k \"node --watch server/index.mjs\" \"vite --host 0.0.0.0\"",
     "start": "node server/index.mjs",
     "typecheck": "tsc -b",
-    "lint": "eslint server src/live vite.config.ts",
+    "lint": "eslint server shared src/live vite.config.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run src/tests && node --test server/test/*.test.mjs"

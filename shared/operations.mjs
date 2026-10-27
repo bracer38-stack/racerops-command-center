@@ -30,7 +30,7 @@ export function classifyAlert(alert) {
   const synced = /gmail sync/i.test(alert.source || '') && !alert.classificationOverride;
   return {
     ...alert, subject, summary, promotional,
-    business: synced ? business : alert.business || business,
+    business: alert.classificationOverride ? alert.business || business : business,
     actionRequired: synced ? automaticAction : alert.classificationOverride ? Boolean(alert.actionRequired) : Boolean(alert.actionRequired || automaticAction),
     priority: synced ? automaticAction ? 'High' : 'Low' : alert.priority || (automaticAction ? 'High' : 'Low'),
   };
