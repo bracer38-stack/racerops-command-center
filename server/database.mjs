@@ -7,12 +7,17 @@ import { schemas, HttpError } from './schema.mjs';
 export function openStore(path) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const db = new Database(path);
+  const version = db.pragma('user_version', { simple: true });
+  const populated = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' LIMIT 1").get();
+  if (version !== 3 && (version !== 0 || populated)) {
+    db.close();
+    throw new Error(`Database version ${version} needs the explicitly approved Phase 1 upgrade after a verified backup. No migration was run.`);
+  }
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
-  if (db.pragma('user_version', { simple: true }) > 2) { db.close(); throw new Error('This database requires a newer RacerOps server.'); }
-  const bools = new Set(['actionRequired', 'done', 'read']);
-  db.transaction(() => {
+  const bools = new Set(['actionRequired', 'done', 'read', 'listUnsubscribe', 'classificationOverride']);
+  if (version === 0) db.transaction(() => {
     for (const [name, schema] of Object.entries(schemas)) {
       const columns = Object.keys(schema.shape).map(key => {
         const type = key === 'price' ? 'REAL' : bools.has(key) ? 'INTEGER NOT NULL' : 'TEXT';
@@ -20,7 +25,6 @@ export function openStore(path) {
       });
       db.exec(`CREATE TABLE IF NOT EXISTS ${name} (id TEXT PRIMARY KEY, ${columns.join(',')}, createdAt TEXT NOT NULL, updatedAt TEXT NOT NULL)`);
     }
-    if (!db.pragma('table_info(inventory)').some(column => column.name === 'imageUrl')) db.exec("ALTER TABLE inventory ADD COLUMN imageUrl TEXT NOT NULL DEFAULT ''");
     db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS inventory_sku ON inventory(sku COLLATE NOCASE) WHERE sku <> '';
     CREATE UNIQUE INDEX IF NOT EXISTS alerts_external ON alerts(account, externalId) WHERE externalId <> '';
@@ -29,12 +33,10 @@ export function openStore(path) {
     CREATE TABLE IF NOT EXISTS oauth_states (hash TEXT PRIMARY KEY, provider TEXT NOT NULL, sessionHash TEXT NOT NULL, verifier TEXT NOT NULL, expiresAt INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS connections (id TEXT PRIMARY KEY, provider TEXT NOT NULL, account TEXT NOT NULL, tokens TEXT NOT NULL, lastSync TEXT, error TEXT, UNIQUE(provider, account));
     CREATE TABLE IF NOT EXISTS webhook_events (id TEXT PRIMARY KEY, hash TEXT NOT NULL, receivedAt TEXT NOT NULL, type TEXT NOT NULL DEFAULT '', recordId TEXT NOT NULL DEFAULT '');
+    CREATE TABLE IF NOT EXISTS folder_settings (connectionId TEXT PRIMARY KEY REFERENCES connections(id) ON DELETE CASCADE, folders TEXT NOT NULL DEFAULT '[]', updatedAt TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS webhook_received ON webhook_events(receivedAt DESC);
-    PRAGMA user_version = 2;
+    PRAGMA user_version = 3;
     `);
-    for (const column of ['type', 'recordId']) {
-      if (!db.pragma('table_info(webhook_events)').some(field => field.name === column)) db.exec(`ALTER TABLE webhook_events ADD COLUMN ${column} TEXT NOT NULL DEFAULT ''`);
-    }
   })();
 
   function table(name) { if (!Object.hasOwn(schemas, name)) throw new HttpError(404, 'Unknown resource'); return name; }

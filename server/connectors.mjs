@@ -2,6 +2,8 @@ import { randomBytes, randomUUID, createHash } from 'node:crypto';
 import { z } from 'zod';
 import { hash, tokenVault } from './auth.mjs';
 import { HttpError } from './schema.mjs';
+import { classifyAlert, decodeText } from '../shared/operations.mjs';
+import { folderService, selectedFolders, syncSelectedFiles } from './folders.mjs';
 
 const allowedGoogleAccounts = ['bracer38@gmail.com', 'robert@over50fitlife.com'];
 const tokenEndpoints = {
@@ -36,8 +38,8 @@ export function connectors(store, config) {
     return {
       googleConfigured: enabled('google'), onedriveConfigured: enabled('onedrive'),
       webhookConfigured: Boolean(config.WEBHOOK_SECRET), aiConfigured: Boolean(config.OPENAI_API_KEY),
-      connections: store.db.prepare('SELECT id, provider, account, lastSync, error FROM connections ORDER BY account').all(),
-      syncScope: 'Each sync reads the newest 25 Gmail messages from the past 30 days, up to 200 recently modified Drive files per Google account, and up to 200 OneDrive root files. No background sync or mailbox writes.',
+      connections: store.db.prepare('SELECT id, provider, account, lastSync, error FROM connections ORDER BY account').all().map(connection => ({ ...connection, folders: selectedFolders(store, connection.id) })),
+      syncScope: 'Each sync reads the newest 25 Gmail messages from the past 30 days and up to 200 files within explicitly selected business folders per cloud account. No personal root-folder sync, background sync, or provider file writes.',
     };
   }
   function authorize(req, res) {
@@ -91,18 +93,18 @@ export function connectors(store, config) {
       if (connection.provider === 'google') {
         const messageList = await get('https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=newer_than%3A30d');
         for (let i = 0; i < (messageList.messages || []).length; i += 5) {
-          const messages = await Promise.all(messageList.messages.slice(i, i + 5).map(m => get(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(m.id)}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`)));
+          const messages = await Promise.all(messageList.messages.slice(i, i + 5).map(m => get(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(m.id)}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date&metadataHeaders=List-Unsubscribe`)));
           for (const m of messages) {
             const header = key => m.payload?.headers?.find(h => h.name.toLowerCase() === key)?.value || '';
-            alerts.push({ externalId: m.id, account: connection.account, subject: header('subject').slice(0, 300) || '(No subject)', from: header('from').slice(0, 1000), date: header('date').slice(0, 1000), summary: m.snippet || '', business: 'Dual Business', priority: m.labelIds?.includes('STARRED') ? 'High' : 'Medium', actionRequired: Boolean(m.labelIds?.includes('STARRED')), source: 'Gmail sync', url: `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(connection.account)}#all/${m.id}` });
+            const old = store.db.prepare('SELECT id FROM alerts WHERE account = ? AND externalId = ?').get(connection.account, m.id);
+            const previous = old ? store.get('alerts', old.id) : null;
+            const raw = { externalId: m.id, account: connection.account, subject: decodeText(header('subject')).slice(0, 300) || '(No subject)', from: decodeText(header('from')).slice(0, 1000), date: header('date').slice(0, 1000), summary: decodeText(m.snippet || ''), business: 'Dual Business', priority: 'Low', actionRequired: false, mailLabels: (m.labelIds || []).join(' ').slice(0, 2000), listUnsubscribe: Boolean(header('list-unsubscribe')), classificationOverride: Boolean(previous?.classificationOverride), source: 'Gmail sync', url: `https://mail.google.com/mail/u/?authuser=${encodeURIComponent(connection.account)}#all/${m.id}` };
+            const { promotional: _promotional, ...classified } = classifyAlert(raw);
+            alerts.push(previous?.classificationOverride ? { ...classified, business: previous.business, priority: previous.priority, actionRequired: previous.actionRequired } : classified);
           }
         }
-        const result = await get('https://www.googleapis.com/drive/v3/files?pageSize=200&orderBy=modifiedTime%20desc&q=trashed%3Dfalse%20and%20mimeType%20!%3D%20%27application%2Fvnd.google-apps.folder%27&fields=files(id,name,webViewLink,parents)');
-        for (const f of result.files || []) files.push({ externalId: f.id, account: connection.account, name: f.name.slice(0, 300), cloud: 'Google Drive', business: 'Dual Business', folder: f.parents?.join(', ') || '', status: 'Synced metadata', url: f.webViewLink || '', source: 'Google Drive sync' });
-      } else {
-        const result = await get('https://graph.microsoft.com/v1.0/me/drive/root/children?$top=200&$select=id,name,webUrl,parentReference,file');
-        for (const f of result.value || []) if (f.file) files.push({ externalId: f.id, account: connection.account, name: f.name.slice(0, 300), cloud: 'OneDrive', business: 'Dual Business', folder: f.parentReference?.path || '/', status: 'Synced metadata', url: f.webUrl || '', source: 'OneDrive sync' });
       }
+      files.push(...await syncSelectedFiles(connection, selectedFolders(store, connection.id), get));
       store.db.transaction(() => {
         for (const alert of alerts) {
           const old = store.db.prepare('SELECT id FROM alerts WHERE account = ? AND externalId = ?').get(alert.account, alert.externalId);
@@ -125,5 +127,5 @@ export function connectors(store, config) {
     store.db.prepare('DELETE FROM connections WHERE id = ?').run(req.params.id);
     res.json({ disconnected: true });
   }
-  return { status, authorize, oauthCallback, sync, disconnect };
+  return { status, authorize, oauthCallback, sync, disconnect, folders: folderService(store, { enabled, accessToken, inFlight }) };
 }

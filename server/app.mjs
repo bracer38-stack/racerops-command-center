@@ -10,6 +10,7 @@ import { configure, authMiddleware, hash } from './auth.mjs';
 import { connectors } from './connectors.mjs';
 import { parseVendoo, importVendoo } from './csv.mjs';
 import { answer } from './assistant.mjs';
+import { inventorySuggestions } from '../shared/operations.mjs';
 
 export function createApp(store, env, { staticDir, disableRateLimits = false } = {}) {
   const config = configure(env), app = express();
@@ -70,6 +71,10 @@ export function createApp(store, env, { staticDir, disableRateLimits = false } =
   app.get('/api/connectors/:provider/authorize', cloud.authorize);
   app.get('/api/connectors/:provider/callback', cloud.oauthCallback);
   app.post('/api/connectors/:id/sync', limit(60000, 10), cloud.sync);
+  app.get('/api/connectors/:id/folders', cloud.folders.candidates);
+  app.put('/api/connectors/:id/folders', cloud.folders.select);
+  app.get('/api/connectors/:id/prune-preview', cloud.folders.preview);
+  app.post('/api/connectors/:id/prune', cloud.folders.prune);
   app.delete('/api/connectors/:id', cloud.disconnect);
   app.post('/api/assistant', limit(60000, 15), async (req, res) => res.json(await answer(store, config, req.body)));
   app.get('/api/backup', (_req, res) => res.json({ version: 1, exportedAt: new Date().toISOString(), ...store.snapshot() }));
@@ -90,6 +95,27 @@ export function createApp(store, env, { staticDir, disableRateLimits = false } =
     const body = csvBody.parse(req.body), parsed = parseVendoo(body.csv, body.filename);
     res.json(importVendoo(store, parsed, body.filename, body.mode));
   });
+  app.post('/api/inventory/suggestions/approve', (req, res) => {
+    const approvals = z.array(z.object({ id: idSchema, field: z.enum(['size', 'color', 'brand']), value: z.string().min(1).max(1000), expectedUpdatedAt: z.iso.datetime() }).strict()).min(1).max(500).parse(req.body?.approvals);
+    const unique = new Set(approvals.map(a => `${a.id}:${a.field}`));
+    if (unique.size !== approvals.length) throw new HttpError(400, 'Duplicate field approvals.');
+    const saved = store.db.transaction(() => {
+      const changes = new Map();
+      for (const approval of approvals) {
+        const item = store.get('inventory', approval.id);
+        if (!item || item.updatedAt !== approval.expectedUpdatedAt) throw new HttpError(409, 'Inventory changed since the suggestions were shown. Refresh and review again.');
+        const suggestion = inventorySuggestions(item).find(s => s.field === approval.field && s.value === approval.value);
+        if (!suggestion) throw new HttpError(409, 'Suggestion no longer matches the saved item. Refresh and review again.');
+        changes.set(item.id, { ...item, ...(changes.get(item.id) || {}), [approval.field]: approval.value });
+      }
+      for (const [id, item] of changes) {
+        const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...data } = item;
+        store.put('inventory', data, id);
+      }
+      return changes.size;
+    })();
+    res.json({ updated: saved, approved: approvals.length });
+  });
   for (const [name, schema] of Object.entries(schemas)) {
     app.get(`/api/${name}`, (req, res) => {
       const query = z.object({ q: z.string().max(200).default(''), limit: z.coerce.number().int().min(1).max(200).default(100), offset: z.coerce.number().int().min(0).default(0) }).parse(req.query);
@@ -107,7 +133,8 @@ export function createApp(store, env, { staticDir, disableRateLimits = false } =
       const patch = schema.partial().parse(req.body);
       const { id: _id, createdAt: _created, updatedAt: _updated, ...data } = old;
       const supplied = Object.fromEntries(Object.keys(req.body).map(key => [key, patch[key]]));
-      res.json(store.put(name, { ...data, ...supplied }, id));
+      const override = name === 'alerts' && ['business', 'priority', 'actionRequired'].some(key => Object.hasOwn(patch, key));
+      res.json(store.put(name, { ...data, ...supplied, ...(override ? { classificationOverride: true } : {}) }, id));
     });
     app.delete(`/api/${name}/:id`, (req, res) => { store.remove(name, idSchema.parse(req.params.id)); res.status(204).end(); });
   }

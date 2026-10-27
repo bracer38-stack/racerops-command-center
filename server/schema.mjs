@@ -3,7 +3,7 @@ import { z } from 'zod';
 const text = z.string().trim().max(1000);
 const title = text.min(1).max(300);
 const notes = z.string().max(20000).default('');
-const business = z.enum(["Kim's Closet", 'Over50FitLife', 'App Studio', 'Dual Business']).default("Kim's Closet");
+const business = z.enum(["Kim's Closet", 'Over50FitLife', 'NutriPlanPro', 'App Studio', 'Dual Business']).default("Kim's Closet");
 export const idSchema = z.string().min(1).max(150).regex(/^[\w.-]+$/);
 export const safeUrl = z.string().max(2000).refine(value => {
   if (!value) return true;
@@ -24,12 +24,15 @@ export const schemas = {
   alerts: z.object({
     account: z.email().max(320), externalId: text.default(''), from: text.default(''),
     date: text.default(''), subject: title, summary: notes, business,
-    priority: z.enum(['High', 'Medium', 'Low']).default('Medium'), actionRequired: z.boolean().default(true),
+    priority: z.enum(['High', 'Medium', 'Low']).default('Low'), actionRequired: z.boolean().default(false),
+    mailLabels: text.max(2000).default(''), listUnsubscribe: z.boolean().default(false),
+    classificationOverride: z.boolean().default(false),
     source: text.default('Manual'), url: safeUrl,
   }).strict(),
   files: z.object({
     name: title, cloud: z.enum(['Google Drive', 'OneDrive', 'Vendoo Import', 'Manual']).default('Manual'),
-    account: text.default(''), externalId: text.default(''), business, folder: text.default(''),
+    account: text.default(''), externalId: text.default(''), business, folder: text.default(''), folderId: text.default(''),
+    folderPathIds: z.string().max(30000).default('[]'),
     status: text.default('Saved'), url: safeUrl, source: text.default('Manual'),
   }).strict(),
   apps: z.object({

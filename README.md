@@ -4,6 +4,24 @@ Private, single-owner command center for **Over50FitLife** and **Kim’s Closet 
 
 ## Appearance
 
+## Phase 1 preview and approval gate
+
+Phase 1 adds a five-move Morning Brief, marketing filtering/business tagging, review-only inventory suggestions, and compact business-grouped cloud files. Size/color suggestions only fill blank fields after explicit bulk approval; brand corrections also require approval. “Needs review” is derived from missing size, color, price, or photo, independently of the saved listing status. Displayed hub dates use America/New_York.
+
+Cloud accounts sync **no files by default** until the owner selects folders and assigns each to a business in Connections. Selected folders include descendants; at most 200 files and 100 traversed folders are processed per sync. Explicitly selected child folders take precedence over selected ancestors. Gmail still reads the newest 25 messages from the past 30 days. Previously saved files are retained until the owner previews and confirms removal. Cleanup removes RacerOps metadata only, never provider files. Older metadata with unknown ancestry is protected unless the owner explicitly includes it in removal.
+
+**Do not deploy, merge, or run a migration without owner approval.** Show isolated preview screenshots of every changed screen first. Immediately before an approved deployment/upgrade, repeat the verified full SQLite backup API + business JSON + private off-host recovery archive process; keep encryption keys separate. Do not copy a live SQLite file without its WAL.
+
+New disposable databases initialize directly at schema 3. Existing databases refuse an automatic upgrade. The prepared explicit command below is a migration, **not a preview/setup command**, and must not be executed until separately approved and backed up:
+
+```sh
+node server/migrate-phase-one.mjs --approve-phase-one-upgrade /absolute/path/to/database.sqlite
+```
+
+The upgrade adds mail classification metadata, file-folder ancestry, and per-connection folder settings; it does not rewrite business records, tokens, sessions, or webhook receipts. The upgrade execution is intentionally deferred pending approval. Use only a fresh, never-before-used synthetic database path for preview/testing. JSON restore remains a separate destructive operation; folder selections and OAuth credentials are protected by the full SQLite backup, not the business JSON export.
+
+### Theme behavior
+
 The live hub defaults to **Light**: soft off-white backgrounds, white cards, and dark text with teal/pink accents. The **Light/Dark switch** is on the sign-in screen and in the workspace header. The selection is saved as `racerops:hub-theme` in this browser's localStorage, survives sign-out/reloads, and follows changes in another tab. Each browser/device has its own choice; the OS dark-mode setting does not override the light default. If browser storage is blocked, switching still works for the open page but may not survive a reload. Native form controls and browser theme-color follow the selection; an installed PWA's launch screen uses the light default. The legacy dashboard is unchanged.
 
 ## Run locally

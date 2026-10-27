@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { openStore } from '../database.mjs';
 import { parseVendoo, importVendoo } from '../csv.mjs';
 import { backupSchema, schemas } from '../schema.mjs';
+import Database from 'better-sqlite3';
 
 const photo = 'https://images.example.com/jacket.jpg';
 const csvCell = value => `"${value.replaceAll('"', '""')}"`;
@@ -62,7 +63,7 @@ test('photos-only backfill preserves all other fields, IDs and counts, skipping 
   } finally { store.db.close(); }
 });
 
-test('version-one databases migrate in place without losing records, tokens, sessions or webhook replay protection', () => {
+test('existing databases refuse an unapproved upgrade without changing records, tokens, sessions or receipts', () => {
   const dir = mkdtempSync(join(tmpdir(), 'racerops-migration-')), path = join(dir, 'hub.sqlite');
   let store;
   try {
@@ -71,16 +72,17 @@ test('version-one databases migrate in place without losing records, tokens, ses
     store.db.prepare('INSERT INTO sessions VALUES (?, ?, ?)').run('session-hash', Date.now() + 60000, 'credential-hash');
     store.db.prepare('INSERT INTO connections (id,provider,account,tokens) VALUES (?,?,?,?)').run('google-1', 'google', 'owner@example.com', 'opaque-test-value');
     store.db.prepare('INSERT INTO webhook_events (id,hash,receivedAt) VALUES (?,?,?)').run('old-event', 'digest', '2026-01-01T00:00:00.000Z');
-    store.db.exec('ALTER TABLE inventory DROP COLUMN imageUrl; ALTER TABLE webhook_events DROP COLUMN type; ALTER TABLE webhook_events DROP COLUMN recordId; PRAGMA user_version = 1;');
-    store.db.close(); store = openStore(path);
-    assert.equal(store.get('inventory', item.id).imageUrl, '');
-    assert.equal(store.get('inventory', item.id).price, 25);
-    assert.equal(store.db.prepare('SELECT COUNT(*) n FROM sessions').get().n, 1);
-    assert.equal(store.db.prepare('SELECT tokens FROM connections').get().tokens, 'opaque-test-value');
-    assert.equal(store.db.prepare('SELECT hash FROM webhook_events').get().hash, 'digest');
-    store.put('inventory', { title: 'Photo jacket', imageUrl: photo });
-    store.db.close(); store = openStore(path);
-    assert.equal(store.list('inventory').total, 2);
-    assert.equal(store.db.pragma('user_version', { simple: true }), 2);
-  } finally { store?.db.close(); rmSync(dir, { recursive: true }); }
+    store.db.pragma('user_version = 2');
+    store.db.close();
+    assert.throws(() => openStore(path), /explicitly approved Phase 1 upgrade/);
+    const check = new Database(path, { readonly: true });
+    try {
+      assert.equal(check.pragma('user_version', { simple: true }), 2);
+      assert.equal(check.prepare('SELECT price FROM inventory WHERE id = ?').get(item.id).price, 25);
+      assert.equal(check.prepare('SELECT COUNT(*) n FROM sessions').get().n, 1);
+      assert.equal(check.prepare('SELECT tokens FROM connections').get().tokens, 'opaque-test-value');
+      assert.equal(check.prepare('SELECT hash FROM webhook_events').get().hash, 'digest');
+      assert.equal(check.pragma('integrity_check', { simple: true }), 'ok');
+    } finally { check.close(); }
+  } finally { if (store?.db.open) store.db.close(); rmSync(dir, { recursive: true }); }
 });
